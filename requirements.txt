@@ -1,4 +1,4 @@
 pyserial
 numpy
-pyqt5
+pyqt5==5.11.2
 pyqtgraph
