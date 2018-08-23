@@ -1,3 +1,4 @@
+psutil==5.4.5
 pyserial==3.4.0
 numpy==1.15.0
 pyqtgraph==0.10.0
