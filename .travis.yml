@@ -3,15 +3,16 @@ sudo: required
 
 python:
   - "3.6"
-
-virtualenv:
-  system_site_packages: true
   
 before_install:
   wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
   bash ./miniconda.sh -b -p ${HOME}/miniconda;
   export PATH=${HOME}/miniconda/bin:$PATH;
-  conda install --yes python="3.6" pyqt;  
+  conda install --yes python="3.6" pyqt;
+  
+  conda install pyqtgraph
+  conda install numpy
+  conda install pyserial
 
 install:
   - pip install -r requirements.txt
