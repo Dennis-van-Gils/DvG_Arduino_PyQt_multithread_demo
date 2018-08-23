@@ -9,13 +9,9 @@ before_install:
   bash ./miniconda.sh -b -p ${HOME}/miniconda;
   export PATH=${HOME}/miniconda/bin:$PATH;
   conda install --yes python="3.6" pyqt;
-  
   conda install --yes pyqtgraph="0.10.0";
-  conda install --yes numpy="1.14.3";
+  conda install --yes numpy="1.15.0";
   conda install --yes pyserial="3.4.0";
 
-install:
-  - pip install -r requirements.txt
-
 script:
-  - Arduino_PyQt_demo_with_multithreading.py
+  - python Arduino_PyQt_demo_with_multithreading.py
