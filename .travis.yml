@@ -2,11 +2,20 @@ language: python
 sudo: required
 
 python:
-  - "3.5"
+  - 3.5
+
 virtualenv:
   system_site_packages: true
+  
+before_install:
+  wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh;
+  bash ./miniconda.sh -b -p ${HOME}/miniconda;
+  export PATH=${HOME}/miniconda/bin:$PATH;
+  conda install --yes python="2.7" pyqt;  
+
 install:
   - pip3 install pyqt5
   - pip install -r requirements.txt
+
 script:
   - Arduino_PyQt_demo_with_multithreading
