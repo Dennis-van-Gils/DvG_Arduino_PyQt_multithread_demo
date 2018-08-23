@@ -1,1 +1,12 @@
 language: python
+sudo: required
+
+python:
+  - "3.7"
+virtualenv:
+  system_site_packages: true
+install:
+  - pip3 install pyqt5
+  - pip install -r requirements.txt
+script:
+  - Arduino_PyQt_demo_with_multithreading

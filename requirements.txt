@@ -1,5 +1,3 @@
-python_version > '3.5'
 pyserial==3.4.0
 numpy==1.14.3
-pyqt==5.9.2
 pyqtgraph==0.10.0
