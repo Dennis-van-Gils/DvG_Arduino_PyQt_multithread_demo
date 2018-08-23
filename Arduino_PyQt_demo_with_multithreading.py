@@ -11,7 +11,6 @@ __version__     = "1.0.0"
 
 import os
 import sys
-import psutil
 from pathlib import Path
 
 from PyQt5 import QtCore, QtGui
@@ -20,6 +19,7 @@ from PyQt5.QtCore import QDateTime
 
 import pyqtgraph as pg
 import numpy as np
+import psutil
 
 from DvG_PyQt_FileLogger   import FileLogger
 from DvG_PyQt_ChartHistory import ChartHistory
@@ -381,13 +381,16 @@ def my_Arduino_DAQ_update():
 if __name__ == '__main__':
     # Set this process priority to maximum in the operating system
     print("PID: %s" % os.getpid())
-    proc = psutil.Process(os.getpid())
-    if os.name == "nt":
-        # Windows
-        proc.nice(psutil.REALTIME_PRIORITY_CLASS)
-    else:
-        # Other OS's
-        proc.nice(-20)
+    try:
+        proc = psutil.Process(os.getpid())
+        if os.name == "nt":
+            # Windows
+            proc.nice(psutil.REALTIME_PRIORITY_CLASS)
+        else:
+            # Other OS's
+            proc.nice(-20)
+    except:
+        print("Warning: Could not set process to maximum priority.")
     
     # --------------------------------------------------------------------------
     #   Connect to Arduino(s)
