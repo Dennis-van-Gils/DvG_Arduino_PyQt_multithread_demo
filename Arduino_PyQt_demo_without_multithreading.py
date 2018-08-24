@@ -374,13 +374,16 @@ def my_Arduino_DAQ_update():
 if __name__ == '__main__':
     # Set this process priority to maximum in the operating system
     print("PID: %s" % os.getpid())
-    proc = psutil.Process(os.getpid())
-    if os.name == "nt":
-        # Windows
-        proc.nice(psutil.REALTIME_PRIORITY_CLASS)
-    else:
-        # Other OS's
-        proc.nice(-20)
+    try:
+        proc = psutil.Process(os.getpid())
+        if os.name == "nt":
+            # Windows
+            proc.nice(psutil.REALTIME_PRIORITY_CLASS)
+        else:
+            # Other OS's
+            proc.nice(-20)
+    except:
+        print("Warning: Could not set process to maximum priority.")
     
     # --------------------------------------------------------------------------
     #   Connect to Arduino(s)
@@ -393,7 +396,7 @@ if __name__ == '__main__':
     if not(ard.is_alive):
         print("\nCheck connection and try resetting the Arduino(s)")
         print("Exiting...\n")
-        sys.exit(1)
+        sys.exit(0)
         
     # We need to handle the Arduino mutex ourselves in this single-thread demo
     ard.mutex = QtCore.QMutex()
