@@ -237,21 +237,15 @@ class MainWindow(QtWid.QWidget):
 
     @QtCore.pyqtSlot()
     def process_qpbt_wave_sine(self):
-        locker = QtCore.QMutexLocker(ard.mutex)
         ard.write("sine")
-        locker.unlock()
         
     @QtCore.pyqtSlot()
     def process_qpbt_wave_square(self):
-        locker = QtCore.QMutexLocker(ard.mutex)
         ard.write("square")
-        locker.unlock()
         
     @QtCore.pyqtSlot()
     def process_qpbt_wave_sawtooth(self):
-        locker = QtCore.QMutexLocker(ard.mutex)
         ard.write("sawtooth")
-        locker.unlock()
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
@@ -326,9 +320,7 @@ def my_Arduino_DAQ_update():
         state.prev_tick = now
 
     # Query the Arduino for its state
-    locker = QtCore.QMutexLocker(ard.mutex)
     [success, tmp_state] = ard.query_ascii_values("?", separator='\t')
-    locker.unlock()
     if not(success):
         dprint("'%s' reports IOError @ %s %s" %
                (ard.name, str_cur_date, str_cur_time))
@@ -398,9 +390,6 @@ if __name__ == '__main__':
         print("Exiting...\n")
         sys.exit(0)
         
-    # We need to handle the Arduino mutex ourselves in this single-thread demo
-    ard.mutex = QtCore.QMutex()
-        
     # --------------------------------------------------------------------------
     #   Create application and main window
     # --------------------------------------------------------------------------
@@ -408,9 +397,6 @@ if __name__ == '__main__':
     app = 0    # Work-around for kernel crash when using Spyder IDE
     app = QtWid.QApplication(sys.argv)
     app.aboutToQuit.connect(about_to_quit)
-    
-    # For DEBUG info
-    QtCore.QThread.currentThread().setObjectName('MAIN')
 
     window = MainWindow()
     
