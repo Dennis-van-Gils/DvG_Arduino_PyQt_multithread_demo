@@ -13,6 +13,7 @@ For convenience all dependendies on my libraries are already embedded in this pa
 
 Third-party depencies you'll need for this demo:
 
+* [psutil](https://pypi.org/project/psutil/)
 * [pySerial](https://pypi.org/project/pyserial/)
 * [NumPy](http://www.numpy.org/)
 * [PyQt5](https://pypi.org/project/PyQt5/)
