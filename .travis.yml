@@ -16,3 +16,5 @@ before_install:
 
 script:
   - python Arduino_PyQt_demo_with_multithreading.py
+  - python Arduino_PyQt_demo_with_multithreading__minimalistic.py
+  - python Arduino_PyQt_demo_without_multithreading.py
