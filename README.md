@@ -5,7 +5,7 @@ Multithreaded demonstration of real-time plotting and logging of live Arduino da
 
 It has a PyQt5 graphical user-interface, with a PyQtGraph plot for fast real-time plotting of data, which are obtained from a waveform generating Arduino(-like) device (source files included) at an acquisition rate of 100 Hz, and it provides logging this data to a file. The main thread handles the GUI and redrawing of the plot, another thread deals with acquiring data from the Arduino at a fixed rate and the last thread maintains a thread-safe queue where messages to be sent out to the Arduino are managed.
 
-For convenience all dependendies on my libraries are already embedded in this package (versions 1.0.0). If you want you can find the separate repositories here:
+For convenience all dependendies on my libraries are already embedded in this package. If you want you can find the separate repositories here:
 
 * [DvG_dev_Arduino](https://github.com/Dennis-van-Gils/DvG_dev_Arduino)
 * [DvG_debug_functions](https://github.com/Dennis-van-Gils/DvG_debug_functions)
