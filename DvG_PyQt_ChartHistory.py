@@ -16,10 +16,10 @@ Class:
         Args:
             chart_history_length:
                 Number of data points to store in each history buffer.
-            plot_data_item: 
+            plot_data_item:
                 Instance of `pyqtgraph.PlotDataItem` to plot out the buffered
                 data to.
-                
+
         Methods:
             apply_downsampling(...):
                 Calls the downsampling routines of PyQtGraph, but in the future
@@ -33,18 +33,20 @@ Class:
                 Update the data behind the curve and redraw.
             clear():
                 Clear buffers.
-        
+
         Important member:
             x_axis_divisor:
                 If the x-data is time, you can use this divisor value to
                 transform the x-axis units from e.g. milliseconds to seconds or
                 minutes.
+            y_axis_divisor:
+                Same functionality as x_axis_divisor
 """
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__         = "https://github.com/Dennis-van-Gils/DvG_PyQt_misc"
-__date__        = "23-08-2018"
-__version__     = "1.0.0"
+__date__        = "04-09-2018"
+__version__     = "1.0.1"
 
 import collections
 
@@ -59,10 +61,11 @@ class ChartHistory(object):
         self.chart_history_length = chart_history_length
         self.curve = plot_data_item   # Instance of [pyqtgraph.PlotDataItem]
         self.mutex = QtCore.QMutex()  # For the case of multithreaded access
-        
+
         # If the x-data is time, you can use this divisor value to transform
         # the x-axis units from e.g. milliseconds to seconds or minutes.
         self.x_axis_divisor = 1
+        self.y_axis_divisor = 1
 
         self._x = collections.deque(maxlen=chart_history_length)
         self._y = collections.deque(maxlen=chart_history_length)
@@ -118,7 +121,8 @@ class ChartHistory(object):
             else:
                 self.curve.setData((self._x_snapshot - self._x_snapshot[-1])
                                    / float(self.x_axis_divisor),
-                                   self._y_snapshot)
+                                   self._y_snapshot
+                                   / float(self.y_axis_divisor))
 
     def clear(self):
         locker = QtCore.QMutexLocker(self.mutex)
