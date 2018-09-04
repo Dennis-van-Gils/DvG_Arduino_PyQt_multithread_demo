@@ -51,7 +51,7 @@ Classes:
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__         = "https://github.com/Dennis-van-Gils/DvG_dev_Arduino"
-__date__        = "03-09-2018"
+__date__        = "04-09-2018"
 __version__     = "1.1.0"
 
 import queue
@@ -103,7 +103,6 @@ class Arduino_pyqt(QtWid.QWidget):
                  ard: Arduino_functions.Arduino,
                  worker_DAQ_update_interval_ms=250,
                  worker_DAQ_function_to_run_each_update=None,
-                 worker_send_msleep=50,
                  parent=None):
         super(Arduino_pyqt, self).__init__(parent=parent)
 
@@ -331,7 +330,6 @@ class Arduino_pyqt(QtWid.QWidget):
 
         def __init__(self,
                      ard: Arduino_functions.Arduino,
-                     thread_msleep=50,
                      DEBUG_color=ANSI.YELLOW):
             super().__init__(None)
 
