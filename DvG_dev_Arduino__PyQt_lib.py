@@ -59,7 +59,6 @@ import numpy as np
 
 from PyQt5 import QtCore
 from PyQt5 import QtWidgets as QtWid
-from PyQt5.QtCore import QDateTime
 
 from DvG_debug_functions import ANSI, dprint
 
@@ -99,6 +98,10 @@ class Arduino_pyqt(QtWid.QWidget):
             woken up from sleep by calling 'Worker_send.qwc.wakeAll()'.
             See Worker_send for details.
     """
+    from DvG_dev_Base__PyQt_lib import (create_and_set_up_threads,
+                                        start_thread_worker_DAQ,
+                                        start_thread_worker_send,
+                                        close_threads)
 
     def __init__(self,
                  dev: Arduino_functions.Arduino,
@@ -115,20 +118,7 @@ class Arduino_pyqt(QtWid.QWidget):
                                           DAQ_function_to_run_each_update)
         self.worker_send = self.Worker_send(dev)
 
-        # Create and set up threads
-        if self.dev.is_alive:
-            self.thread_DAQ = QtCore.QThread()
-            self.thread_DAQ.setObjectName("%s_DAQ" % self.dev.name)
-            self.worker_DAQ.moveToThread(self.thread_DAQ)
-            self.thread_DAQ.started.connect(self.worker_DAQ.run)
-
-            self.thread_send = QtCore.QThread()
-            self.thread_send.setObjectName("%s_send" % self.dev.name)
-            self.worker_send.moveToThread(self.thread_send)
-            self.thread_send.started.connect(self.worker_send.run)
-        else:
-            self.thread_DAQ = None
-            self.thread_send = None
+        self.create_and_set_up_threads()
 
     # --------------------------------------------------------------------------
     #   Worker_DAQ
@@ -244,12 +234,12 @@ class Arduino_pyqt(QtWid.QWidget):
                        self.DEBUG_color)
 
             # Keep track of the obtained DAQ rate
-            # Start at iteration 2 to ensure we have stabilized
-            now = QDateTime.currentDateTime()
-            if self.dev.update_counter == 2:
+            # Start at iteration 3 to ensure we have stabilized
+            now = QtCore.QDateTime.currentDateTime()
+            if self.dev.update_counter == 3:
                 self.prev_tick = now
             elif (self.dev.update_counter %
-                  self.calc_DAQ_rate_every_N_iter == 2):
+                  self.calc_DAQ_rate_every_N_iter == 3):
                 self.obtained_DAQ_rate = (self.calc_DAQ_rate_every_N_iter /
                                           self.prev_tick.msecsTo(now) * 1e3)
                 self.prev_tick = now
@@ -425,44 +415,3 @@ class Arduino_pyqt(QtWid.QWidget):
         any I/O operation on the queue.
         """
         self.queued_send(self.dev.write, msg_str)
-
-    # --------------------------------------------------------------------------
-    #   Start threads
-    # --------------------------------------------------------------------------
-
-    def start_thread_worker_DAQ(self):
-        if self.thread_DAQ is not None:
-            self.thread_DAQ.start()
-            # Bump up the thread priority in the operating system
-            self.thread_DAQ.setPriority(QtCore.QThread.TimeCriticalPriority)
-        else:
-            print("Worker_DAQ  %s: Can't start because device is not alive" %
-                  self.dev.name)
-
-    def start_thread_worker_send(self):
-        if self.thread_send is not None:
-            self.thread_send.start()
-        else:
-            print("Worker_send %s: Can't start because device is not alive" %
-                  self.dev.name)
-
-    # --------------------------------------------------------------------------
-    #   close_threads
-    # --------------------------------------------------------------------------
-
-    def close_threads(self):
-        if self.thread_DAQ is not None:
-            self.thread_DAQ.quit()
-            print("Closing thread %-9s: " %
-                  self.thread_DAQ.objectName(), end='')
-            if self.thread_DAQ.wait(2000): print("done.\n", end='')
-            else: print("FAILED.\n", end='')
-
-        if self.thread_send is not None:
-            self.worker_send.stop()
-            self.worker_send.qwc.wakeAll()
-            self.thread_send.quit()
-            print("Closing thread %-9s: " %
-                  self.thread_send.objectName(), end='')
-            if self.thread_send.wait(2000): print("done.\n", end='')
-            else: print("FAILED.\n", end='')

@@ -442,6 +442,9 @@ if __name__ == '__main__':
     ard_pyqt.start_thread_worker_DAQ()
     ard_pyqt.start_thread_worker_send()
     
+    # Bump up the thread priority in the operating system
+    ard_pyqt.thread_DAQ.setPriority(QtCore.QThread.TimeCriticalPriority)
+    
     # --------------------------------------------------------------------------
     #   Create timers
     # --------------------------------------------------------------------------
