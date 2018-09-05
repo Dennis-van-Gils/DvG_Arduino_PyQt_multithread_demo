@@ -6,7 +6,7 @@ transmission for an Arduino(-like) device.
 The communication threads are robust in the following sense. They can be set
 to quit as soon as a communication error appears, or they could be set to allow
 a certain number of communication errors before they quit. The latter can be
-usefull in non-critical implementations where continuity of the program is of
+useful in non-critical implementations where continuity of the program is of
 more importance than preventing drops in data transmission. This, obviously, is
 a work-around for not having to tackle the source of the communication error,
 but sometimes you just need to struggle on. E.g., when your Arduino is out in
@@ -39,7 +39,7 @@ Classes:
                 Reference to an external function containing the Arduino query
                 operations and subsequent data processing, to be invoked every
                 DAQ update. It should return True when everything went
-                successfull, and False otherwise.
+                successful, and False otherwise.
 
         Signals:
             worker_DAQ.signal_DAQ_updated:
@@ -51,8 +51,8 @@ Classes:
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__         = "https://github.com/Dennis-van-Gils/DvG_dev_Arduino"
-__date__        = "04-09-2018"
-__version__     = "1.1.0"
+__date__        = "05-09-2018"
+__version__     = "1.2.0"
 
 import queue
 import numpy as np
@@ -62,13 +62,14 @@ from PyQt5 import QtWidgets as QtWid
 from PyQt5.QtCore import QDateTime
 
 from DvG_debug_functions import ANSI, dprint
+
 import DvG_dev_Arduino__fun_serial as Arduino_functions
 
 # Show debug info in terminal? Warning: slow! Do not leave on unintentionally.
 DEBUG = False
 
 # Short-hand alias for DEBUG information
-curThread = QtCore.QThread.currentThread
+def curThreadName(): return QtCore.QThread.currentThread().objectName()
 
 # ------------------------------------------------------------------------------
 #   Arduino_pyqt
@@ -100,40 +101,29 @@ class Arduino_pyqt(QtWid.QWidget):
     """
 
     def __init__(self,
-                 ard: Arduino_functions.Arduino,
-                 worker_DAQ_update_interval_ms=250,
-                 worker_DAQ_function_to_run_each_update=None,
+                 dev: Arduino_functions.Arduino,
+                 DAQ_update_interval_ms=250,
+                 DAQ_function_to_run_each_update=None,
                  parent=None):
         super(Arduino_pyqt, self).__init__(parent=parent)
 
-        # Store reference to 'DvG_dev_Arduino__fun_serial.Arduino()' instance
-        self.ard = ard
+        self.dev = dev
+        self.dev.mutex = QtCore.QMutex()
 
-        # Create mutex for proper multithreading
-        self.ard.mutex = QtCore.QMutex()
-
-        # Periodically acquires data from the device.
-        # !! Will be put in a seperate thread !!
-        self.worker_DAQ = self.Worker_DAQ(ard,
-                worker_DAQ_update_interval_ms,
-                worker_DAQ_function_to_run_each_update)
-
-        # Maintains a queue where desired device I/O operations can be put on
-        # the stack. The worker will send out the operations to the device
-        # every time the thread is woken up from its QWaitCondition by calling
-        # self.worker_send.qwc.wakeAll()
-        # !! Will be put in a seperate thread !!
-        self.worker_send = self.Worker_send(ard)
+        self.worker_DAQ = self.Worker_DAQ(dev,
+                                          DAQ_update_interval_ms,
+                                          DAQ_function_to_run_each_update)
+        self.worker_send = self.Worker_send(dev)
 
         # Create and set up threads
-        if self.ard.is_alive:
+        if self.dev.is_alive:
             self.thread_DAQ = QtCore.QThread()
-            self.thread_DAQ.setObjectName("%s_DAQ" % self.ard.name)
+            self.thread_DAQ.setObjectName("%s_DAQ" % self.dev.name)
             self.worker_DAQ.moveToThread(self.thread_DAQ)
             self.thread_DAQ.started.connect(self.worker_DAQ.run)
 
             self.thread_send = QtCore.QThread()
-            self.thread_send.setObjectName("%s_send" % self.ard.name)
+            self.thread_send.setObjectName("%s_send" % self.dev.name)
             self.worker_send.moveToThread(self.thread_send)
             self.thread_send.started.connect(self.worker_send.run)
         else:
@@ -149,7 +139,7 @@ class Arduino_pyqt(QtWid.QWidget):
         device at a fixed update interval.
 
         Args:
-            ard:
+            dev:
                 Reference to 'DvG_dev_Arduino__fun_serial.Arduino()' instance.
 
             update_interval_ms:
@@ -159,17 +149,17 @@ class Arduino_pyqt(QtWid.QWidget):
                 Every 'update' it will invoke the function that is pointed to by
                 'function_to_run_each_update'. This function should contain your
                 device query operations and subsequent data processing. It
-                should return True when everything went successfull, and False
+                should return True when everything went successful, and False
                 otherwise. NOTE: No changes to the GUI should run inside this
                 function! If you do anyhow, expect a penalty in the timing
                 stability of this worker.
 
-                E.g. (pseudo-code), where 'ard' is an instance of
+                E.g. (pseudo-code), where 'dev' is an instance of
                 DvG_dev_Arduino__fun_serial.Arduino():
 
                 def my_update_function():
                     # Query the Arduino for its state
-                    [success, tmp_state] = ard.query_ascii_values("state?")
+                    [success, tmp_state] = dev.query_ascii_values("state?")
                     if not(success):
                         print("Arduino IOerror")
                         return False
@@ -195,10 +185,6 @@ class Arduino_pyqt(QtWid.QWidget):
                 and a 'connection lost' signal is emitted. Use at your own
                 discretion.
 
-            DEBUG_color (optional):
-                ANSI color code string containing the terminal text color for
-                outputting debug information, e.g. '\x1b[1;31m' for red.
-
         Signals:
             signal_DAQ_updated:
                 Emitted by the worker when 'update' has finished.
@@ -211,40 +197,34 @@ class Arduino_pyqt(QtWid.QWidget):
         signal_connection_lost = QtCore.pyqtSignal()
 
         def __init__(self,
-                     ard: Arduino_functions.Arduino,
+                     dev: Arduino_functions.Arduino,
                      update_interval_ms,
                      function_to_run_each_update=None,
-                     critical_not_alive_count=3,
-                     DEBUG_color=ANSI.CYAN):
+                     critical_not_alive_count=3):
             super().__init__(None)
+            self.DEBUG_color=ANSI.CYAN
 
-            self.ard = ard
-            self.ard.update_counter = 0
-            self.ard.not_alive_counter = 0
-            self.ard.critical_not_alive_count = critical_not_alive_count
-
+            self.dev = dev
+            self.dev.update_counter = 0
+            self.dev.not_alive_counter = 0
             self.update_interval_ms = update_interval_ms
             self.function_to_run_each_update = function_to_run_each_update
+            self.dev.critical_not_alive_count = critical_not_alive_count
 
             # Calculate the DAQ rate around every 1 sec
             self.calc_DAQ_rate_every_N_iter = round(1e3/self.update_interval_ms)
             self.obtained_DAQ_rate = np.nan
             self.prev_tick = 0
 
-            # Terminal text color for DEBUG information
-            self.DEBUG_color = DEBUG_color
-
             if DEBUG:
                 dprint("Worker_DAQ  %s init: thread %s" %
-                       (self.ard.name, curThread().objectName()),
-                       self.DEBUG_color)
+                       (self.dev.name, curThreadName()), self.DEBUG_color)
 
         @QtCore.pyqtSlot()
         def run(self):
             if DEBUG:
                 dprint("Worker_DAQ  %s run : thread %s" %
-                       (self.ard.name, curThread().objectName()),
-                       self.DEBUG_color)
+                       (self.dev.name, curThreadName()), self.DEBUG_color)
 
             self.timer = QtCore.QTimer()
             self.timer.setInterval(self.update_interval_ms)
@@ -255,31 +235,31 @@ class Arduino_pyqt(QtWid.QWidget):
 
         @QtCore.pyqtSlot()
         def update(self):
-            self.ard.update_counter += 1
-            locker = QtCore.QMutexLocker(self.ard.mutex)
+            self.dev.update_counter += 1
+            locker = QtCore.QMutexLocker(self.dev.mutex)
 
             if DEBUG:
                 dprint("Worker_DAQ  %s: iter %i" %
-                       (self.ard.name, self.ard.update_counter),
+                       (self.dev.name, self.dev.update_counter),
                        self.DEBUG_color)
 
             # Keep track of the obtained DAQ rate
             # Start at iteration 2 to ensure we have stabilized
             now = QDateTime.currentDateTime()
-            if self.ard.update_counter == 2:
+            if self.dev.update_counter == 2:
                 self.prev_tick = now
-            elif (self.ard.update_counter %
+            elif (self.dev.update_counter %
                   self.calc_DAQ_rate_every_N_iter == 2):
                 self.obtained_DAQ_rate = (self.calc_DAQ_rate_every_N_iter /
                                           self.prev_tick.msecsTo(now) * 1e3)
                 self.prev_tick = now
 
             # Check the alive counter
-            if (self.ard.not_alive_counter >=
-                self.ard.critical_not_alive_count):
+            if (self.dev.not_alive_counter >=
+                self.dev.critical_not_alive_count):
                 dprint("\nWorker_DAQ determined Arduino '%s' is not alive." %
-                       self.ard.name)
-                self.ard.is_alive = False
+                       self.dev.name)
+                self.dev.is_alive = False
 
                 locker.unlock()
                 self.timer.stop()
@@ -293,7 +273,7 @@ class Arduino_pyqt(QtWid.QWidget):
 
             if not(self.function_to_run_each_update is None):
                 if not(self.function_to_run_each_update()):
-                    self.ard.not_alive_counter += 1
+                    self.dev.not_alive_counter += 1
 
             # ------------------------
             #   End external code
@@ -302,10 +282,9 @@ class Arduino_pyqt(QtWid.QWidget):
             locker.unlock()
 
             if DEBUG:
-                dprint("Worker_DAQ  %s: unlocked" % self.ard.name,
+                dprint("Worker_DAQ  %s: unlocked" % self.dev.name,
                        self.DEBUG_color)
 
-            # Send signal that update is finished
             self.signal_DAQ_updated.emit()
 
     # --------------------------------------------------------------------------
@@ -320,61 +299,51 @@ class Arduino_pyqt(QtWid.QWidget):
         'Worker_send.qwc.wakeAll()'
 
         Args:
-            ard:
-                Reference to 'DvG_dev_Arduino__fun_serial.Arduino()' instance.
+            dev: Reference to 'DvG_dev_Arduino__fun_serial.Arduino()' instance.
 
-            DEBUG_color (optional):
-                ANSI color code string containing the terminal text color for
-                outputting debug information, e.g. '\x1b[1;31m'.
+        No changes to the GUI are allowed inside this class!
         """
 
-        def __init__(self,
-                     ard: Arduino_functions.Arduino,
-                     DEBUG_color=ANSI.YELLOW):
+        def __init__(self, dev: Arduino_functions.Arduino):
             super().__init__(None)
+            self.DEBUG_color=ANSI.YELLOW
 
-            self.ard = ard
+            self.dev = dev
             self.running = True
             self.mutex = QtCore.QMutex()
             self.qwc = QtCore.QWaitCondition()
 
-            # Put a 'sentinel' value in the queue to signal the end. This way we
-            # can prevent a Queue.Empty exception being thrown later on when we
-            # will read the queue till the end.
+            # Use a 'sentinel' value to signal the start and end of the queue
+            # to ensure proper multithreaded operation.
             self.sentinel = None
             self.queue = queue.Queue()
             self.queue.put(self.sentinel)
 
-            # Terminal text color for DEBUG information
-            self.DEBUG_color = DEBUG_color
-
             if DEBUG:
                 dprint("Worker_send %s init: thread %s" %
-                       (self.ard.name, curThread().objectName()),
-                       self.DEBUG_color)
+                       (self.dev.name, curThreadName()), self.DEBUG_color)
 
         @QtCore.pyqtSlot()
         def run(self):
             if DEBUG:
                 dprint("Worker_send %s run : thread %s" %
-                       (self.ard.name, curThread().objectName()),
-                       self.DEBUG_color)
+                       (self.dev.name, curThreadName()), self.DEBUG_color)
 
             while self.running:
                 locker_worker = QtCore.QMutexLocker(self.mutex)
 
                 if DEBUG:
                     dprint("Worker_send %s: waiting for trigger" %
-                           self.ard.name, self.DEBUG_color)
+                           self.dev.name, self.DEBUG_color)
                 self.qwc.wait(self.mutex)
                 if DEBUG:
                     dprint("Worker_send %s: trigger received" %
-                           self.ard.name, self.DEBUG_color)
+                           self.dev.name, self.DEBUG_color)
 
                 # Process all jobs until the queue is empty.
                 # We must iterate 2 times because we use a sentinel in a FIFO
-                # queue. First iter will remove the old sentinel. Second iter
-                # will process the remaining queue items and will put back the
+                # queue. First iter removes the old sentinel. Second iter
+                # processes the remaining queue items and will put back a new
                 # sentinel again.
                 #
                 # Note: Instead of just write operations, you can also put
@@ -383,40 +352,39 @@ class Arduino_pyqt(QtWid.QWidget):
                 # value for 'func', like:
                 #
                 # if func == "query_id?":
-                #     [success, ans_str] = self.ard.query("id?")
+                #     [success, ans_str] = self.dev.query("id?")
                 #     # And store the reply 'ans_str' in another variable
                 #     # at a higher scope or do stuff with it here.
                 # elif:
                 #     # Default situation where
-                #     # func = self.ard.write
+                #     # func = self.dev.write
                 #     # args = "toggle LED"     # E.g.
                 #     func(*args)
                 #
                 # The (somewhat) complex 'func(*args)' method is used on
                 # purpose, because it allows for more flexible schemes.
-                
                 for i in range(2):
                     for job in iter(self.queue.get_nowait, self.sentinel):
                         func = job[0]
                         args = job[1:]
-    
+
                         if DEBUG:
                             dprint("Worker_send %s: %s %s" %
-                                   (self.ard.name, func.__name__, args),
+                                   (self.dev.name, func.__name__, args),
                                    self.DEBUG_color)
-    
-                        # Send message to the device
-                        locker = QtCore.QMutexLocker(self.ard.mutex)
+
+                        # Send I/O operation to the device
+                        locker = QtCore.QMutexLocker(self.dev.mutex)
                         func(*args)
                         locker.unlock()
-    
+
                     # Put sentinel back in
                     self.queue.put(self.sentinel)
 
                 locker_worker.unlock()
 
             if DEBUG:
-                dprint("Worker_send %s: done running" % self.ard.name,
+                dprint("Worker_send %s: done running" % self.dev.name,
                        self.DEBUG_color)
 
         @QtCore.pyqtSlot()
@@ -424,17 +392,39 @@ class Arduino_pyqt(QtWid.QWidget):
             self.running = False
 
     # --------------------------------------------------------------------------
+    #   queued_send
+    # --------------------------------------------------------------------------
+
+    def queued_send(self, dev_io_function_call, pass_args=()):
+        """Put a device I/O function call on the worker_send queue and trigger
+        processing the queue.
+
+        Args:
+            dev_io_function_call:
+                E.g. self.dev.write
+
+            pass_args (optional, default=()):
+                Argument(s) to be passed to the function call. Must be a tuple,
+                but for convenience any other type will also be accepted if it
+                concerns just a single argument that needs to be passed.
+        """
+        if type(pass_args) is not tuple: pass_args = (pass_args,)
+        self.worker_send.queue.put((dev_io_function_call, *pass_args))
+        self.worker_send.qwc.wakeAll()
+
+    # --------------------------------------------------------------------------
     #   send
     # --------------------------------------------------------------------------
 
-    def send(self, write_msg_str):
-        """Put a write operation on the worker_send queue and process the queue.
-        """
-        self.worker_send.queue.put([self.ard.write, write_msg_str])
+    def send(self, msg_str):
+        """Put a 'write a string message' operation on the worker_send queue and
+        process the queue.
         
-        # Schedule sending out the full queue to the device by waking up the
-        # thread
-        self.worker_send.qwc.wakeAll()
+        Note: This 'send' method is fixed to a 'write' operation to keep things
+        simple. The more powerful method is 'queued_send', which allows to put
+        any I/O operation on the queue.
+        """
+        self.queued_send(self.dev.write, msg_str)
 
     # --------------------------------------------------------------------------
     #   Start threads
@@ -443,19 +433,18 @@ class Arduino_pyqt(QtWid.QWidget):
     def start_thread_worker_DAQ(self):
         if self.thread_DAQ is not None:
             self.thread_DAQ.start()
-
             # Bump up the thread priority in the operating system
             self.thread_DAQ.setPriority(QtCore.QThread.TimeCriticalPriority)
         else:
-            print("ERROR: Can't start worker_DAQ thread because '%s' is not "
-                  "alive" % self.ard.name)
+            print("Worker_DAQ  %s: Can't start because device is not alive" %
+                  self.dev.name)
 
     def start_thread_worker_send(self):
         if self.thread_send is not None:
             self.thread_send.start()
         else:
-            print("ERROR: Can't start worker_send thread because '%s' is not "
-                  "alive" % self.ard.name)
+            print("Worker_send %s: Can't start because device is not alive" %
+                  self.dev.name)
 
     # --------------------------------------------------------------------------
     #   close_threads
@@ -463,7 +452,6 @@ class Arduino_pyqt(QtWid.QWidget):
 
     def close_threads(self):
         if self.thread_DAQ is not None:
-            #self.worker_DAQ.stop()  # Not necessary
             self.thread_DAQ.quit()
             print("Closing thread %-9s: " %
                   self.thread_DAQ.objectName(), end='')

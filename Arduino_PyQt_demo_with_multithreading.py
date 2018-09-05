@@ -6,8 +6,8 @@ data using PyQt5 and PyQtGraph.
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__         = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__        = "23-08-2018"
-__version__     = "1.0.0"
+__date__        = "05-09-2018"
+__version__     = "1.0.1"
 
 import os
 import sys
@@ -383,11 +383,9 @@ if __name__ == '__main__':
     print("PID: %s" % os.getpid())
     try:
         proc = psutil.Process(os.getpid())
-        if os.name == "nt":
-            # Windows
+        if os.name == "nt": # Windows
             proc.nice(psutil.REALTIME_PRIORITY_CLASS)
-        else:
-            # Other OS's
+        else:               # Other OS's
             proc.nice(-20)
     except:
         print("Warning: Could not set process to maximum priority.")
@@ -432,10 +430,9 @@ if __name__ == '__main__':
     # --------------------------------------------------------------------------
 
     # Create workers and threads
-    ard_pyqt = Arduino_pyqt_lib.Arduino_pyqt(
-                ard=ard,
-                worker_DAQ_update_interval_ms=UPDATE_INTERVAL_ARDUINO,
-                worker_DAQ_function_to_run_each_update=my_Arduino_DAQ_update)
+    ard_pyqt = Arduino_pyqt_lib.Arduino_pyqt(ard,
+                                             UPDATE_INTERVAL_ARDUINO,
+                                             my_Arduino_DAQ_update)
 
     # Connect slots from main thread to signals from worker threads
     ard_pyqt.worker_DAQ.signal_DAQ_updated.connect(update_GUI)
