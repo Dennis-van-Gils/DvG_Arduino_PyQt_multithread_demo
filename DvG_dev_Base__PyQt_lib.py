@@ -79,7 +79,7 @@ class Worker_DAQ(QtCore.QObject):
 
     Args:
         dev:
-            Reference to an 'device' instance with I/O methods.
+            Reference to a 'device' instance with I/O methods.
 
         update_interval_ms:
             Desired data acquisition update interval in milliseconds.
@@ -135,7 +135,6 @@ class Worker_DAQ(QtCore.QObject):
         signal_connection_lost:
             Emitted by the worker during 'update' when 'not_alive_counter'
             is equal to or larger than 'critical_not_alive_count'.
-
     """
     signal_DAQ_updated     = QtCore.pyqtSignal()
     signal_connection_lost = QtCore.pyqtSignal()
@@ -255,7 +254,7 @@ class Worker_send(QtCore.QObject):
     
     Args:
         dev:
-            Reference to an 'device' instance with I/O methods.
+            Reference to a 'device' instance with I/O methods.
         
         DEBUG (bool, optional, default=False):
             Show debug info in terminal? Warning: Slow! Do not leave on

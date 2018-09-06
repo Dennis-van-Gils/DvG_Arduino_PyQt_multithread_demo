@@ -31,7 +31,7 @@ class Arduino_pyqt(QtCore.QObject):
     !! No direct changes to the GUI should be performed inside these workers. If
     !! needed, use the 'QtCore.pyqtSignal()' mechanism to instigate GUI changes.
     
-    In 'DvG_dev_Base__PyQt_lib.py' you can find more details.
+    See 'DvG_dev_Base__PyQt_lib.py' for more details.
     
     Args:
         dev:
