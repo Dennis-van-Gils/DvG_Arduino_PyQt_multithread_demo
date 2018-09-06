@@ -1,12 +1,54 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""PyQt5 module to provide the base framework for multithreaded communication
+and periodical data acquisition for an I/O device.
+
+MODUS OPERANDI:
+---------------
+    
+All device I/O operations will be offloaded to 'workers' that each will be
+running in a newly created thread, instead of in the main/GUI thread.
+
+    - Worker_DAQ
+        Periodically acquires data from the device.
+        See Worker_DAQ for details.
+
+    - Worker_send
+        Maintains a thread-safe queue where desired device I/O operations can be
+        put onto, and sends the queued operations first in first out (FIFO) to
+        the device.
+        See Worker_send for details.
+
+CONTENTS:
+---------
+
+Classes:
+    Worker_DAQ(...)
+        Signals:
+            signal_DAQ_updated()
+            signal_connection_lost()
+            
+    Worker_send(...)        
+        Methods:
+            add_to_queue(...)
+            process_queue()
+    
+Functions:
+    create_and_set_up_threads()
+    start_thread_worker_DAQ(...)
+    start_thread_worker_send(...)
+    close_threads()
+    
+"""
+__author__      = "Dennis van Gils"
+__authoremail__ = "vangils.dennis@gmail.com"
+__url__         = "https://github.com/Dennis-van-Gils/DvG_dev_Arduino"
+__date__        = "06-09-2018"
+__version__     = "2.0.0"
 
 import queue
-
 import numpy as np
-
 from PyQt5 import QtCore
-
 from DvG_debug_functions import ANSI, dprint
 
 # Short-hand alias for DEBUG information
@@ -17,26 +59,42 @@ def curThreadName(): return QtCore.QThread.currentThread().objectName()
 # ------------------------------------------------------------------------------
 
 class Worker_DAQ(QtCore.QObject):
-    """This Worker runs on an internal timer and will acquire data from the
-    device at a fixed update interval.
+    """This worker acquires data from the device at a fixed update interval.
+    It does so by calling a user-supplied function containing your device I/O
+    operations (and data parsing, processing or more), every update period.
+    
+    The worker should be placed inside a separate thread. No direct changes to
+    the GUI should be performed inside this class. If needed, use the
+    QtCore.pyqtSignal() mechanism to instigate GUI changes.
+    
+    The Worker_DAQ routine is robust in the following sense. It can be set to
+    quit as soon as a communication error appears, or it could be set to allow
+    a certain number of communication errors before it quits. The latter can be
+    useful in non-critical implementations where continuity of the program is of
+    more importance than preventing drops in data transmission. This, obviously,
+    is a work-around for not having to tackle the source of the communication
+    error, but sometimes you just need to struggle on. E.g., when your Arduino
+    is out in the field and picks up occasional unwanted interference/ground
+    noise that messes with your data transmission.
 
     Args:
         dev:
-            Reference to an 'device' instance.
+            Reference to an 'device' instance with I/O methods.
 
         update_interval_ms:
-            Update interval in milliseconds.
+            Desired data acquisition update interval in milliseconds.
 
         function_to_run_each_update (optional, default=None):
-            Every 'update' it will invoke the function that is pointed to by
-            'function_to_run_each_update'. This function should contain your
-            device query operations and subsequent data processing. It
-            should return True when everything went successful, and False
-            otherwise. NOTE: No changes to the GUI should run inside this
-            function! If you do anyhow, expect a penalty in the timing
-            stability of this worker.
+            Reference to a user-supplied function containing the device query
+            operations and subsequent data processing, to be invoked every DAQ
+            update. It should return True when everything went successful, and
+            False otherwise.
+            
+            NOTE: No changes to the GUI should run inside this function! If you
+            do anyhow, expect a penalty in the timing stability of this worker.
 
-            E.g. (pseudo-code):
+            E.g. pseudo-code, where 'time' and 'reading_1' are variables that
+            live at a higher scope, presumably at main/GUI scope level.
 
             def my_update_function():
                 # Query the device for its state
@@ -45,30 +103,35 @@ class Worker_DAQ(QtCore.QObject):
                     print("Device IOerror")
                     return False
 
-                # Parse readings into separate variables.
+                # Parse readings into separate variables
                 try:
                     [time, reading_1] = tmp_state
                 except Exception as err:
                     print(err)
                     return False
 
-                # Print [time, reading_1] to open file with handle 'f'
-                try:
-                    f.write("%.3f\t%.3f\n" % (time, reading_1))
-                except Exception as err:
-                    print(err)
-
                 return True
 
-        critical_not_alive_count (optional, default=3):
-            Worker_DAQ will allow for up to a certain number of
-            communication failures with the device before hope is given up
-            and a 'connection lost' signal is emitted. Use at your own
-            discretion.
+        critical_not_alive_count (optional, default=1):
+            The worker will allow for up to a certain number of communication
+            failures with the device before hope is given up and a 'connection
+            lost' signal is emitted. Use at your own discretion.
+            
+        timer_type (PyQt5.QtCore.Qt.TimerType, optional, default=
+                    PyQt5.QtCore.Qt.CoarseTimer):
+            The update interval is timed to a QTimer running inside Worker_DAQ.
+            The accuracy of the timer can be improved by setting it to
+            PyQt5.QtCore.Qt.PreciseTimer with ~1 ms granularity, but it is
+            resource heavy. Use sparingly.
+            
+        DEBUG (bool, optional, default=False):
+            Show debug info in terminal? Warning: Slow! Do not leave on
+            unintentionally.
 
     Signals:
         signal_DAQ_updated:
             Emitted by the worker when 'update' has finished.
+            
         signal_connection_lost:
             Emitted by the worker during 'update' when 'not_alive_counter'
             is equal to or larger than 'critical_not_alive_count'.
@@ -82,6 +145,7 @@ class Worker_DAQ(QtCore.QObject):
                  update_interval_ms,
                  function_to_run_each_update=None,
                  critical_not_alive_count=3,
+                 timer_type=QtCore.Qt.CoarseTimer,
                  DEBUG=False):
         super().__init__(None)
         self.DEBUG = DEBUG
@@ -94,10 +158,11 @@ class Worker_DAQ(QtCore.QObject):
 
         self.update_interval_ms = update_interval_ms
         self.function_to_run_each_update = function_to_run_each_update
+        self.timer_type = timer_type
 
         # Calculate the DAQ rate around every 1 sec
         self.calc_DAQ_rate_every_N_iter = round(1e3/self.update_interval_ms)
-        self.obtained_DAQ_rate = np.nan
+        self.dev.obtained_DAQ_rate = np.nan
         self.prev_tick = 0
 
         if self.DEBUG:
@@ -113,8 +178,7 @@ class Worker_DAQ(QtCore.QObject):
         self.timer = QtCore.QTimer()
         self.timer.setInterval(self.update_interval_ms)
         self.timer.timeout.connect(self.update)
-        # CRITICAL, 1 ms resolution
-        self.timer.setTimerType(QtCore.Qt.PreciseTimer)
+        self.timer.setTimerType(self.timer_type)
         self.timer.start()
 
     @QtCore.pyqtSlot()
@@ -128,20 +192,20 @@ class Worker_DAQ(QtCore.QObject):
                    self.DEBUG_color)
 
         # Keep track of the obtained DAQ rate
-        # Start at iteration 3 to ensure we have stabilized
+        # Start at iteration 5 to ensure we have stabilized
         now = QtCore.QDateTime.currentDateTime()
-        if self.dev.update_counter == 3:
+        if self.dev.update_counter == 5:
             self.prev_tick = now
         elif (self.dev.update_counter %
-              self.calc_DAQ_rate_every_N_iter == 3):
-            self.obtained_DAQ_rate = (self.calc_DAQ_rate_every_N_iter /
-                                      self.prev_tick.msecsTo(now) * 1e3)
+              self.calc_DAQ_rate_every_N_iter == 5):
+            self.dev.obtained_DAQ_rate = (self.calc_DAQ_rate_every_N_iter /
+                                          self.prev_tick.msecsTo(now) * 1e3)
             self.prev_tick = now
 
         # Check the alive counter
         if (self.dev.not_alive_counter >=
             self.dev.critical_not_alive_count):
-            dprint("\nWorker_DAQ determined Arduino '%s' is not alive." %
+            dprint("\nWorker_DAQ %s: Determined device is not alive anymore." %
                    self.dev.name)
             self.dev.is_alive = False
 
@@ -176,16 +240,33 @@ class Worker_DAQ(QtCore.QObject):
 # ------------------------------------------------------------------------------
 
 class Worker_send(QtCore.QObject):
-    """This worker maintains a thread-safe queue where messages to be sent
-    to the device can be put on the stack. The worker will send out the
-    messages to the device, first in first out (FIFO), until the stack is
-    empty again. It sends messages whenever it is woken up by calling
-    'Worker_send.qwc.wakeAll()'
-
+    """This worker maintains a thread-safe queue where desired device I/O
+    operations can be put onto. The worker will send out the operations to the
+    device, first in first out (FIFO), until the queue is empty again. 
+    
+    The worker should be placed inside a separate thread. This worker uses the
+    QWaitCondition mechanism. Hence, it will only send out all operations
+    collected in the queue, whenever the thread it lives in is woken up by
+    calling 'Worker_send.process_queue()'. When it has emptied the queue, the
+    thread will go back to sleep again.
+    
+    No direct changes to the GUI should be performed inside this class. If
+    needed, use the QtCore.pyqtSignal() mechanism to instigate GUI changes.
+    
     Args:
-        dev: Reference to an 'device' instance.
-
-    No changes to the GUI are allowed inside this class!
+        dev:
+            Reference to an 'device' instance with I/O methods.
+        
+        DEBUG (bool, optional, default=False):
+            Show debug info in terminal? Warning: Slow! Do not leave on
+            unintentionally.
+            
+    Methods:
+        add_to_queue(...):
+            Put a device I/O function call on the worker_send queue.
+            
+        process_queue():
+            Trigger processing the worker_send queue.
     """
 
     def __init__(self, dev, DEBUG=False):
@@ -225,29 +306,28 @@ class Worker_send(QtCore.QObject):
                 dprint("Worker_send %s: trigger received" %
                        self.dev.name, self.DEBUG_color)
 
-            # Process all jobs until the queue is empty.
-            # We must iterate 2 times because we use a sentinel in a FIFO
-            # queue. First iter removes the old sentinel. Second iter
-            # processes the remaining queue items and will put back a new
-            # sentinel again.
-            #
-            # Note: Instead of just write operations, you can also put
-            # query operations in the queue and process each reply of
-            # the device. You could do this by creating a special value
-            # value for 'func', like:
-            #
-            # if func == "query_id?":
-            #     [success, ans_str] = self.dev.query("id?")
-            #     # And store the reply 'ans_str' in another variable
-            #     # at a higher scope or do stuff with it here.
-            # elif:
-            #     # Default situation where
-            #     # func = self.dev.write
-            #     # args = "toggle LED"     # E.g.
-            #     func(*args)
-            #
-            # The (somewhat) complex 'func(*args)' method is used on
-            # purpose, because it allows for more flexible schemes.
+            """Process all jobs until the queue is empty. We must iterate 2
+            times because we use a sentinel in a FIFO queue. First iter removes
+            the old sentinel. Second iter processes the remaining queue items
+            and will put back a new sentinel again.
+            
+            Note: Instead of just write operations, you can also put query
+            operations in the queue and process each reply of the device. You
+            could do this by creating a special value for 'func', like:
+            
+              if func == "query_id?":
+                  [success, ans_str] = self.dev.query("id?")
+                  # And store the reply 'ans_str' in another variable
+                  # at a higher scope or do stuff with it here.
+              elif:
+                  # Default situation where, e.g.
+                  # func = self.dev.write
+                  # args = "toggle LED"
+                  func(*args)
+             
+            The (somewhat) complex 'func(*args)' method is used on purpose,
+            because it allows for more flexible schemes.
+            """
             for i in range(2):
                 for job in iter(self.queue.get_nowait, self.sentinel):
                     func = job[0]
@@ -319,16 +399,16 @@ def create_and_set_up_threads(self):
 #   Start threads
 # ------------------------------------------------------------------------------
 
-def start_thread_worker_DAQ(self):
+def start_thread_worker_DAQ(self, priority=QtCore.QThread.InheritPriority):
     if self.thread_DAQ is not None:
-        self.thread_DAQ.start()
+        self.thread_DAQ.start(priority)
     else:
         print("Worker_DAQ  %s: Can't start because device is not alive" %
               self.dev.name)
 
-def start_thread_worker_send(self):
+def start_thread_worker_send(self, priority=QtCore.QThread.InheritPriority):
     if self.thread_send is not None:
-        self.thread_send.start()
+        self.thread_send.start(priority)
     else:
         print("Worker_send %s: Can't start because device is not alive" %
               self.dev.name)

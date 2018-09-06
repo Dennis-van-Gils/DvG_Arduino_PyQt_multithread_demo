@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Multithreaded demonstration of real-time plotting and logging of live Arduino
+"""Demonstration of multithreaded real-time plotting and logging of live Arduino
 data using PyQt5 and PyQtGraph.
 """
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__         = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__        = "05-09-2018"
-__version__     = "1.0.1"
+__date__        = "06-09-2018"
+__version__     = "2.0.0"
 
 import os
 import sys
 from pathlib import Path
 
+import numpy as np
+import psutil
+
 from PyQt5 import QtCore, QtGui
 from PyQt5 import QtWidgets as QtWid
 from PyQt5.QtCore import QDateTime
-
 import pyqtgraph as pg
-import numpy as np
-import psutil
 
 from DvG_PyQt_FileLogger   import FileLogger
 from DvG_PyQt_ChartHistory import ChartHistory
@@ -32,14 +32,14 @@ import DvG_dev_Arduino__PyQt_lib   as Arduino_pyqt_lib
 # Constants
 UPDATE_INTERVAL_ARDUINO = 10  # 10 [ms]
 UPDATE_INTERVAL_CHART   = 10  # 10 [ms]
-CHART_HISTORY_TIME = 10       # 10 [s]
+CHART_HISTORY_TIME      = 10  # 10 [s]
 
 # Global variables for date-time keeping
 cur_date_time = QDateTime.currentDateTime()
 str_cur_date  = cur_date_time.toString("dd-MM-yyyy")
 str_cur_time  = cur_date_time.toString("HH:mm:ss")
 
-# Show debug info in terminal? Warning: slow! Do not leave on unintentionally.
+# Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
 DEBUG = False
 
 # ------------------------------------------------------------------------------
@@ -51,12 +51,13 @@ class State(object):
     Arduino(s). There should only be one instance of the State class.
     """
     def __init__(self):
-        self.time = np.nan          # [ms]
+        self.time      = np.nan     # [ms]
         self.reading_1 = np.nan
         
         # Mutex for proper multithreading. If the state variables are not
         # atomic or thread-safe, you should lock and unlock this mutex for each
-        # read and write operation. In this demo we don't need it.
+        # read and write operation. In this demo we don't need it, but I keep it
+        # as reminder.
         self.mutex = QtCore.QMutex()
 
 state = State()
@@ -233,15 +234,15 @@ class MainWindow(QtWid.QWidget):
 
     @QtCore.pyqtSlot()
     def process_qpbt_wave_sine(self):
-        ard_pyqt.send("sine")
+        ard_pyqt.send_write("sine")
 
     @QtCore.pyqtSlot()
     def process_qpbt_wave_square(self):
-        ard_pyqt.send("square")
+        ard_pyqt.send_write("square")
 
     @QtCore.pyqtSlot()
     def process_qpbt_wave_sawtooth(self):
-        ard_pyqt.send("sawtooth")
+        ard_pyqt.send_write("sawtooth")
 
     @QtCore.pyqtSlot(str)
     def set_text_qpbt_record(self, text_str):
@@ -254,8 +255,7 @@ class MainWindow(QtWid.QWidget):
 def update_GUI():
     window.qlbl_cur_date_time.setText("%s    %s" % (str_cur_date, str_cur_time))
     window.qlbl_update_counter.setText("%i" % ard.update_counter)
-    window.qlbl_DAQ_rate.setText("DAQ: %.1f Hz" %
-                                 ard_pyqt.worker_DAQ.obtained_DAQ_rate)
+    window.qlbl_DAQ_rate.setText("DAQ: %.1f Hz" % ard.obtained_DAQ_rate)
     window.qlin_reading_t.setText("%i" % state.time)
     window.qlin_reading_1.setText("%.4f" % state.reading_1)
 
@@ -349,7 +349,7 @@ def my_Arduino_DAQ_update():
 
     # Use Arduino time or PC time?
     # Arduino time is more accurate, but rolls over ~49 days for a 32 bit timer.
-    use_PC_time = False
+    use_PC_time = True
     if use_PC_time: state.time = cur_date_time.toMSecsSinceEpoch()
 
     # Add readings to chart histories
@@ -379,23 +379,24 @@ def my_Arduino_DAQ_update():
 # ------------------------------------------------------------------------------
 
 if __name__ == '__main__':
-    # Set this process priority to maximum in the operating system
-    print("PID: %s" % os.getpid())
+    # For DEBUG info
+    QtCore.QThread.currentThread().setObjectName('MAIN')
+    
+    # Set priority of this process to maximum in the operating system
+    print("PID: %s\n" % os.getpid())
     try:
         proc = psutil.Process(os.getpid())
-        if os.name == "nt": # Windows
-            proc.nice(psutil.REALTIME_PRIORITY_CLASS)
-        else:               # Other OS's
-            proc.nice(-20)
+        if os.name == "nt": proc.nice(psutil.REALTIME_PRIORITY_CLASS) # Windows
+        else: proc.nice(-20)                                          # Other
     except:
-        print("Warning: Could not set process to maximum priority.")
+        print("Warning: Could not set process to maximum priority.\n")
     
     # --------------------------------------------------------------------------
     #   Connect to Arduino(s)
     # --------------------------------------------------------------------------
     
     ard = Arduino_functions.Arduino(name="Ard", baudrate=115200)
-    ard.auto_connect(Path("last_used_port.txt"), 
+    ard.auto_connect(Path("last_used_port.txt"),
                      match_identity="Wave generator")
 
     if not(ard.is_alive):
@@ -411,18 +412,14 @@ if __name__ == '__main__':
     app = QtWid.QApplication(sys.argv)
     app.aboutToQuit.connect(about_to_quit)
     
-    # For DEBUG info
-    QtCore.QThread.currentThread().setObjectName('MAIN')
-
     window = MainWindow()
     
     # --------------------------------------------------------------------------
-    #   Create file logger
+    #   File logger
     # --------------------------------------------------------------------------
 
     file_logger = FileLogger()
-
-    # Connect slot to signal
+    
     file_logger.signal_set_recording_text.connect(window.set_text_qpbt_record)
 
     # --------------------------------------------------------------------------
@@ -434,17 +431,13 @@ if __name__ == '__main__':
                                              UPDATE_INTERVAL_ARDUINO,
                                              my_Arduino_DAQ_update)
 
-    # Connect slots from main thread to signals from worker threads
     ard_pyqt.worker_DAQ.signal_DAQ_updated.connect(update_GUI)
     ard_pyqt.worker_DAQ.signal_connection_lost.connect(notify_connection_lost)
 
     # Start threads
-    ard_pyqt.start_thread_worker_DAQ()
+    ard_pyqt.start_thread_worker_DAQ(QtCore.QThread.TimeCriticalPriority)
     ard_pyqt.start_thread_worker_send()
-    
-    # Bump up the thread priority in the operating system
-    ard_pyqt.thread_DAQ.setPriority(QtCore.QThread.TimeCriticalPriority)
-    
+
     # --------------------------------------------------------------------------
     #   Create timers
     # --------------------------------------------------------------------------
@@ -452,7 +445,7 @@ if __name__ == '__main__':
     timer_chart = QtCore.QTimer()
     timer_chart.timeout.connect(update_chart)
     timer_chart.start(UPDATE_INTERVAL_CHART)
-
+    
     # --------------------------------------------------------------------------
     #   Start the main GUI loop
     # --------------------------------------------------------------------------
