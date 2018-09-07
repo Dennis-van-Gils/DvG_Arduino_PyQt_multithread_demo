@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """PyQt5 module to provide multithreaded communication and periodical data
-acquisition for an Arduino(-like) device, from now on referred to as the
-'device'.
+acquisition for an Arduino(-like) device.
 """
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
