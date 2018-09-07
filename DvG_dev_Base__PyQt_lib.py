@@ -5,7 +5,7 @@ and periodical data acquisition for an I/O device.
 
 MODUS OPERANDI:
 ---------------
-    
+
 All device I/O operations will be offloaded to 'workers' that each will be
 running in a newly created thread, instead of in the main/GUI thread.
 
@@ -27,23 +27,23 @@ Classes:
         Signals:
             signal_DAQ_updated()
             signal_connection_lost()
-            
-    Worker_send(...)        
+
+    Worker_send(...)
         Methods:
             add_to_queue(...)
             process_queue()
-    
+
 Functions:
     create_and_set_up_threads()
     start_thread_worker_DAQ(...)
     start_thread_worker_send(...)
     close_threads()
-    
+
 """
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__         = "https://github.com/Dennis-van-Gils/DvG_dev_Arduino"
-__date__        = "06-09-2018"
+__date__        = "07-09-2018"
 __version__     = "2.0.0"
 
 import queue
@@ -62,11 +62,11 @@ class Worker_DAQ(QtCore.QObject):
     """This worker acquires data from the device at a fixed update interval.
     It does so by calling a user-supplied function containing your device I/O
     operations (and data parsing, processing or more), every update period.
-    
+
     The worker should be placed inside a separate thread. No direct changes to
     the GUI should be performed inside this class. If needed, use the
     QtCore.pyqtSignal() mechanism to instigate GUI changes.
-    
+
     The Worker_DAQ routine is robust in the following sense. It can be set to
     quit as soon as a communication error appears, or it could be set to allow
     a certain number of communication errors before it quits. The latter can be
@@ -89,7 +89,7 @@ class Worker_DAQ(QtCore.QObject):
             operations and subsequent data processing, to be invoked every DAQ
             update. It should return True when everything went successful, and
             False otherwise.
-            
+
             NOTE: No changes to the GUI should run inside this function! If you
             do anyhow, expect a penalty in the timing stability of this worker.
 
@@ -116,14 +116,14 @@ class Worker_DAQ(QtCore.QObject):
             The worker will allow for up to a certain number of communication
             failures with the device before hope is given up and a 'connection
             lost' signal is emitted. Use at your own discretion.
-            
+
         timer_type (PyQt5.QtCore.Qt.TimerType, optional, default=
                     PyQt5.QtCore.Qt.CoarseTimer):
             The update interval is timed to a QTimer running inside Worker_DAQ.
             The accuracy of the timer can be improved by setting it to
             PyQt5.QtCore.Qt.PreciseTimer with ~1 ms granularity, but it is
             resource heavy. Use sparingly.
-            
+
         DEBUG (bool, optional, default=False):
             Show debug info in terminal? Warning: Slow! Do not leave on
             unintentionally.
@@ -131,7 +131,7 @@ class Worker_DAQ(QtCore.QObject):
     Signals:
         signal_DAQ_updated:
             Emitted by the worker when 'update' has finished.
-            
+
         signal_connection_lost:
             Emitted by the worker during 'update' when 'not_alive_counter'
             is equal to or larger than 'critical_not_alive_count'.
@@ -214,17 +214,17 @@ class Worker_DAQ(QtCore.QObject):
             self.signal_connection_lost.emit()
             return
 
-        # ------------------------
-        #   External code
-        # ------------------------
+        # ----------------------------------
+        #   User-supplied DAQ function
+        # ----------------------------------
 
         if not(self.function_to_run_each_update is None):
             if not(self.function_to_run_each_update()):
                 self.dev.not_alive_counter += 1
 
-        # ------------------------
-        #   End external code
-        # ------------------------
+        # ----------------------------------
+        #   End user-supplied DAQ function
+        # ----------------------------------
 
         locker.unlock()
 
@@ -240,40 +240,83 @@ class Worker_DAQ(QtCore.QObject):
 
 class Worker_send(QtCore.QObject):
     """This worker maintains a thread-safe queue where desired device I/O
-    operations can be put onto. The worker will send out the operations to the
-    device, first in first out (FIFO), until the queue is empty again. 
-    
+    operations, a.k.a. jobs, can be put onto. The worker will send out the
+    operations to the device, first in first out (FIFO), until the queue is
+    empty again.
+
     The worker should be placed inside a separate thread. This worker uses the
     QWaitCondition mechanism. Hence, it will only send out all operations
     collected in the queue, whenever the thread it lives in is woken up by
     calling 'Worker_send.process_queue()'. When it has emptied the queue, the
     thread will go back to sleep again.
-    
+
     No direct changes to the GUI should be performed inside this class. If
     needed, use the QtCore.pyqtSignal() mechanism to instigate GUI changes.
-    
+
     Args:
         dev:
             Reference to a 'device' instance with I/O methods.
-        
+
+        alt_process_jobs_function (optional, default=None):
+            Reference to an user-supplied function performing an alternative
+            job handling when processing the worker_send queue. The default job
+            handling effectuates calling 'func(*args)', where 'func' and 'args'
+            are retrieved from the worker_send queue, and nothing more. The
+            default is sufficient when 'func' corresponds to an I/O operation
+            that is an one-way send, i.e. a write operation without a reply.
+
+            Instead of just write operations, you can also put query operations
+            in the queue and process each reply of the device accordingly. This
+            is the purpose of this argument: To provide your own 'process jobs
+            functions'. The function you supply must take two arguments, where
+            the first argument will be 'func' and the second argument will be
+            'args', which is a tuple. Both 'func' and 'args' will be retrieved
+            from the worker_send queue and passed onto your own function.
+            Don't forget to put a mutex lock and unlock around any device I/O
+            operations.
+
+            Example of a query operation by sending and checking for a special
+            string value of 'func':
+
+                def my_alt_process_jobs_function(func, args):
+                    locker = QtCore.QMutexLocker(self.dev.mutex)
+
+                    if func == "query_id?":
+                        # Query the device for its identity string
+                        [success, ans_str] = self.dev.query("id?")
+                        # And store the reply 'ans_str' in another variable
+                        # at a higher scope or do stuff with it here.
+                    elif:
+                        # Default job handling where, e.g.
+                        # func = self.dev.write
+                        # args = ("toggle LED",)
+                        func(*args)
+
+                    locker.unlock()
+
         DEBUG (bool, optional, default=False):
             Show debug info in terminal? Warning: Slow! Do not leave on
             unintentionally.
-            
+
     Methods:
         add_to_queue(...):
             Put a device I/O function call on the worker_send queue.
-            
+
         process_queue():
             Trigger processing the worker_send queue.
     """
 
-    def __init__(self, dev, DEBUG=False):
+    def __init__(self,
+                 dev,
+                 alt_process_jobs_function=None,
+                 DEBUG=False):
         super().__init__(None)
         self.DEBUG = DEBUG
         self.DEBUG_color = ANSI.YELLOW
 
         self.dev = dev
+        self.alt_process_jobs_function = alt_process_jobs_function
+
         self.running = True
         self.mutex = QtCore.QMutex()
         self.qwc = QtCore.QWaitCondition()
@@ -309,23 +352,6 @@ class Worker_send(QtCore.QObject):
             times because we use a sentinel in a FIFO queue. First iter removes
             the old sentinel. Second iter processes the remaining queue items
             and will put back a new sentinel again.
-            
-            Note: Instead of just write operations, you can also put query
-            operations in the queue and process each reply of the device. You
-            could do this by creating a special value for 'func', like:
-            
-              if func == "query_id?":
-                  [success, ans_str] = self.dev.query("id?")
-                  # And store the reply 'ans_str' in another variable
-                  # at a higher scope or do stuff with it here.
-              elif:
-                  # Default situation where, e.g.
-                  # func = self.dev.write
-                  # args = "toggle LED"
-                  func(*args)
-             
-            The (somewhat) complex 'func(*args)' method is used on purpose,
-            because it allows for more flexible schemes.
             """
             for i in range(2):
                 for job in iter(self.queue.get_nowait, self.sentinel):
@@ -337,10 +363,15 @@ class Worker_send(QtCore.QObject):
                                (self.dev.name, func.__name__, args),
                                self.DEBUG_color)
 
-                    # Send I/O operation to the device
-                    locker = QtCore.QMutexLocker(self.dev.mutex)
-                    func(*args)
-                    locker.unlock()
+                    if self.alt_process_jobs_function is None:
+                        # Default job processing:
+                        # Send I/O operation to the device
+                        locker = QtCore.QMutexLocker(self.dev.mutex)
+                        func(*args)
+                        locker.unlock()
+                    else:
+                        # User-supplied job processing
+                        self.alt_process_jobs_function(func, args)
 
                 # Put sentinel back in
                 self.queue.put(self.sentinel)
@@ -354,6 +385,10 @@ class Worker_send(QtCore.QObject):
     @QtCore.pyqtSlot()
     def stop(self):
         self.running = False
+
+    # --------------------------------------------------------------------------
+    #   add_to_queue
+    # --------------------------------------------------------------------------
 
     def add_to_queue(self, dev_io_function_call, pass_args=()):
         """Put a device I/O function call on the worker_send queue.
@@ -369,6 +404,10 @@ class Worker_send(QtCore.QObject):
         """
         if type(pass_args) is not tuple: pass_args = (pass_args,)
         self.queue.put((dev_io_function_call, *pass_args))
+
+    # --------------------------------------------------------------------------
+    #   process_queue
+    # --------------------------------------------------------------------------
 
     def process_queue(self):
         """Trigger processing the worker_send queue.
@@ -402,14 +441,14 @@ def start_thread_worker_DAQ(self, priority=QtCore.QThread.InheritPriority):
     if self.thread_DAQ is not None:
         self.thread_DAQ.start(priority)
     else:
-        print("Worker_DAQ  %s: Can't start because device is not alive" %
+        print("Worker_DAQ  %s: Can't start because device is not alive." %
               self.dev.name)
 
 def start_thread_worker_send(self, priority=QtCore.QThread.InheritPriority):
     if self.thread_send is not None:
         self.thread_send.start(priority)
     else:
-        print("Worker_send %s: Can't start because device is not alive" %
+        print("Worker_send %s: Can't start because device is not alive." %
               self.dev.name)
 
 # ------------------------------------------------------------------------------
