@@ -53,7 +53,7 @@ class State(object):
     def __init__(self):
         self.time = np.nan          # [ms]
         self.reading_1 = np.nan
-        
+
         # Mutex for proper multithreading. If the state variables are not
         # atomic or thread-safe, you should lock and unlock this mutex for each
         # read and write operation. In this demo we don't need it, but I keep it
@@ -89,15 +89,15 @@ SS_LBL_TITLE = "QLabel {font-size: 20pt}"
 class MainWindow(QtWid.QWidget):
     def __init__(self, parent=None, **kwargs):
         super().__init__(parent, **kwargs)
-        
+
         self.setGeometry(50, 50, 1024, 768)
         self.setWindowTitle("Multithread PyQt & Arduino demo")
         self.setStyleSheet(SS_ALL_FONTS)
-        
+
         # -------------------------
         #   Top frame
         # -------------------------
-        
+
         # Left box
         self.qlbl_update_counter = QtWid.QLabel("0")
         self.qlbl_DAQ_rate = QtWid.QLabel("DAQ: 0 Hz")
@@ -107,7 +107,7 @@ class MainWindow(QtWid.QWidget):
         vbox_left.addWidget(self.qlbl_update_counter, stretch=0)
         vbox_left.addStretch(1)
         vbox_left.addWidget(self.qlbl_DAQ_rate, stretch=0)
-        
+
          # Middle box
         self.qlbl_title = QtWid.QLabel("Multithread PyQt & Arduino demo",
                 font=QtGui.QFont("Palatino", 20, weight=QtGui.QFont.Bold))
@@ -123,7 +123,7 @@ class MainWindow(QtWid.QWidget):
         vbox_middle.addWidget(self.qlbl_title)
         vbox_middle.addWidget(self.qlbl_cur_date_time)
         vbox_middle.addWidget(self.qpbt_record)
-        
+
         # Right box
         self.qpbt_exit = QtWid.QPushButton("Exit")
         self.qpbt_exit.clicked.connect(self.close)
@@ -149,7 +149,7 @@ class MainWindow(QtWid.QWidget):
         self.gw_chart = pg.GraphicsWindow()
         self.gw_chart.setBackground([20, 20, 20])
         self.pi_chart = self.gw_chart.addPlot()
-        
+
         p = {'color': '#CCC', 'font-size': '20pt'}
         self.pi_chart.showGrid(x=1, y=1)
         #self.pi_chart.setTitle('Arduino timeseries', **p)
@@ -159,7 +159,7 @@ class MainWindow(QtWid.QWidget):
             xRange=[-1.04 * CHART_HISTORY_TIME, CHART_HISTORY_TIME * 0.04],
             yRange=[-1.1, 1.1],
             disableAutoRange=True)
-        
+
         font=QtGui.QFont()
         font.setPixelSize(26)
         self.pi_chart.getAxis("bottom").tickFont = font
@@ -168,13 +168,13 @@ class MainWindow(QtWid.QWidget):
         self.pi_chart.getAxis("left").tickFont = font
         self.pi_chart.getAxis("left").setStyle(tickTextOffset=20)
         self.pi_chart.getAxis("left").setWidth(120)
-        
+
         # Create ChartHistory and PlotDataItem and link them together
         PEN_01 = pg.mkPen(color=[0, 200, 0], width=3)
         num_samples = round(CHART_HISTORY_TIME*1e3/UPDATE_INTERVAL_ARDUINO)
         self.CH_1 = ChartHistory(num_samples, self.pi_chart.plot(pen=PEN_01))
         self.CH_1.x_axis_divisor = 1000     # From [ms] to [s]
-        
+
         # 'Readings'
         p = {'readOnly': True}
         self.qlin_reading_t = QtWid.QLineEdit(**p)
@@ -190,7 +190,7 @@ class MainWindow(QtWid.QWidget):
         qgrp_readings = QtWid.QGroupBox("Readings")
         qgrp_readings.setStyleSheet(SS_GROUP)
         qgrp_readings.setLayout(grid)
-        
+
         # 'Wave type'
         self.qpbt_wave_sine = QtWid.QPushButton("Sine")
         self.qpbt_wave_sine.clicked.connect(self.process_qpbt_wave_sine)
@@ -198,13 +198,13 @@ class MainWindow(QtWid.QWidget):
         self.qpbt_wave_square.clicked.connect(self.process_qpbt_wave_square)
         self.qpbt_wave_sawtooth = QtWid.QPushButton("Sawtooth")
         self.qpbt_wave_sawtooth.clicked.connect(self.process_qpbt_wave_sawtooth)
-        
+
         grid = QtWid.QGridLayout()
         grid.addWidget(self.qpbt_wave_sine    , 0, 0)
         grid.addWidget(self.qpbt_wave_square  , 1, 0)
         grid.addWidget(self.qpbt_wave_sawtooth, 2, 0)
         grid.setAlignment(QtCore.Qt.AlignTop)
-        
+
         qgrp_wave_type = QtWid.QGroupBox("Wave type")
         qgrp_wave_type.setStyleSheet(SS_GROUP)
         qgrp_wave_type.setLayout(grid)
@@ -231,11 +231,11 @@ class MainWindow(QtWid.QWidget):
         hbox_bot = QtWid.QHBoxLayout()
         hbox_bot.addWidget(self.gw_chart, 1)
         hbox_bot.addLayout(vbox, 0)
-        
+
         # -------------------------
         #   Round up full window
         # -------------------------
-        
+
         vbox = QtWid.QVBoxLayout(self)
         vbox.addLayout(hbox_top, stretch=0)
         vbox.addSpacerItem(QtWid.QSpacerItem(0, 20))
@@ -299,7 +299,7 @@ def update_chart():
         tick = QDateTime.currentDateTime()
 
     window.CH_1.update_curve()
-    
+
     if DEBUG:
         tack = QDateTime.currentDateTime()
         dprint("  update_curve done in %d ms" % tick.msecsTo(tack))
@@ -359,13 +359,13 @@ def my_Arduino_DAQ_update():
         dprint("'%s' reports IOError @ %s %s" %
                (ard.name, str_cur_date, str_cur_time))
         return False
-    
+
     # Parse readings into separate state variables
     try:
         [state.time, state.reading_1] = tmp_state
     except Exception as err:
         pft(err, 3)
-        dprint("'%s' reports IOError @ %s %s" % 
+        dprint("'%s' reports IOError @ %s %s" %
                (ard.name, str_cur_date, str_cur_time))
         return False
 
@@ -377,14 +377,14 @@ def my_Arduino_DAQ_update():
     # Add readings to chart histories
     window.CH_1.add_new_reading(state.time, state.reading_1)
 
-    # Logging to file    
+    # Logging to file
     if file_logger.starting:
         fn_log = cur_date_time.toString("yyMMdd_HHmmss") + ".txt"
         if file_logger.create_log(state.time, fn_log, mode='w'):
             file_logger.signal_set_recording_text.emit(
                 "Recording to file: " + fn_log)
             file_logger.write("elapsed [s]\treading_1\n")
-            
+
     if file_logger.stopping:
         file_logger.signal_set_recording_text.emit(
             "Click to start recording to file")
@@ -393,7 +393,7 @@ def my_Arduino_DAQ_update():
     if file_logger.is_recording:
         log_elapsed_time = (state.time - file_logger.start_time)/1e3  # [sec]
         file_logger.write("%.3f\t%.4f\n" % (log_elapsed_time, state.reading_1))
-        
+
     return True
 
 # ------------------------------------------------------------------------------
@@ -401,8 +401,6 @@ def my_Arduino_DAQ_update():
 # ------------------------------------------------------------------------------
 
 if __name__ == '__main__':
-    QtCore.QThread.currentThread().setObjectName('MAIN')    # For DEBUG info
-
     # Set priority of this process to maximum in the operating system
     print("PID: %s\n" % os.getpid())
     try:
@@ -411,30 +409,31 @@ if __name__ == '__main__':
         else: proc.nice(-20)                                          # Other
     except:
         print("Warning: Could not set process to maximum priority.\n")
-    
+
     # --------------------------------------------------------------------------
     #   Connect to Arduino
     # --------------------------------------------------------------------------
-    
+
     ard = Arduino_functions.Arduino(name="Ard", baudrate=115200)
-    ard.auto_connect(Path("last_used_port.txt"), 
+    ard.auto_connect(Path("last_used_port.txt"),
                      match_identity="Wave generator")
 
     if not(ard.is_alive):
         print("\nCheck connection and try resetting the Arduino.")
         print("Exiting...\n")
         sys.exit(1)
-        
+
     # --------------------------------------------------------------------------
     #   Create application and main window
     # --------------------------------------------------------------------------
-    
+    QtCore.QThread.currentThread().setObjectName('MAIN')    # For DEBUG info
+
     app = 0    # Work-around for kernel crash when using Spyder IDE
     app = QtWid.QApplication(sys.argv)
     app.aboutToQuit.connect(about_to_quit)
 
     window = MainWindow()
-    
+
     # --------------------------------------------------------------------------
     #   File logger
     # --------------------------------------------------------------------------
@@ -458,7 +457,7 @@ if __name__ == '__main__':
     # Start threads
     ard_pyqt.start_thread_worker_DAQ(QtCore.QThread.TimeCriticalPriority)
     ard_pyqt.start_thread_worker_send()
-    
+
     # --------------------------------------------------------------------------
     #   Create timers
     # --------------------------------------------------------------------------
@@ -470,6 +469,6 @@ if __name__ == '__main__':
     # --------------------------------------------------------------------------
     #   Start the main GUI event loop
     # --------------------------------------------------------------------------
-    
+
     window.show()
     sys.exit(app.exec_())

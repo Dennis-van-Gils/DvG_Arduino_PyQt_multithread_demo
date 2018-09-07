@@ -370,8 +370,6 @@ def my_Arduino_DAQ_update():
 # ------------------------------------------------------------------------------
 
 if __name__ == '__main__':
-    QtCore.QThread.currentThread().setObjectName('MAIN')    # For DEBUG info
-
     # Set priority of this process to maximum in the operating system
     print("PID: %s\n" % os.getpid())
     try:
@@ -397,6 +395,7 @@ if __name__ == '__main__':
     # --------------------------------------------------------------------------
     #   Create application and main window
     # --------------------------------------------------------------------------
+    QtCore.QThread.currentThread().setObjectName('MAIN')    # For DEBUG info
 
     app = 0    # Work-around for kernel crash when using Spyder IDE
     app = QtWid.QApplication(sys.argv)
