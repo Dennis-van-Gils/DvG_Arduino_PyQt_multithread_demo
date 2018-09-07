@@ -69,10 +69,10 @@ class Arduino_pyqt(QtCore.QObject):
             Send out a write message operation to the Arduino.
 
     Signals:
-        worker_DAQ.signal_DAQ_updated:
+        worker_DAQ.signal_DAQ_updated():
             Emitted by the worker when 'update' has finished.
 
-        worker_DAQ.signal_connection_lost:
+        worker_DAQ.signal_connection_lost():
             Emitted by the worker during 'update' when 'not_alive_counter'
             is equal to or larger than 'critical_not_alive_count'.
     """
