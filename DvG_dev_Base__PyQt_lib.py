@@ -32,6 +32,7 @@ Classes:
         Methods:
             add_to_queue(...)
             process_queue()
+            queued_instruction(...)
 
 Functions:
     create_and_set_up_threads()
@@ -43,13 +44,13 @@ Functions:
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__         = "https://github.com/Dennis-van-Gils/DvG_dev_Arduino"
-__date__        = "07-09-2018"
+__date__        = "08-09-2018"
 __version__     = "2.0.0"
 
 import queue
 import numpy as np
 from PyQt5 import QtCore
-from DvG_debug_functions import ANSI, dprint
+from DvG_debug_functions import ANSI, dprint, print_fancy_traceback as pft
 
 # Short-hand alias for DEBUG information
 def curThreadName(): return QtCore.QThread.currentThread().objectName()
@@ -267,13 +268,13 @@ class Worker_send(QtCore.QObject):
 
             Instead of just write operations, you can also put query operations
             in the queue and process each reply of the device accordingly. This
-            is the purpose of this argument: To provide your own 'process jobs
-            functions'. The function you supply must take two arguments, where
-            the first argument will be 'func' and the second argument will be
-            'args', which is a tuple. Both 'func' and 'args' will be retrieved
-            from the worker_send queue and passed onto your own function.
-            Don't forget to put a mutex lock and unlock around any device I/O
-            operations.
+            is the purpose of this argument: To provide your own 'job processing
+            routines' function. The function you supply must take two arguments,
+            where the first argument will be 'func' and the second argument will
+            be 'args', which is a tuple. Both 'func' and 'args' will be
+            retrieved from the worker_send queue and passed onto your own
+            function. Don't forget to put a mutex lock and unlock around any
+            device I/O operations.
 
             Example of a query operation by sending and checking for a special
             string value of 'func':
@@ -300,10 +301,14 @@ class Worker_send(QtCore.QObject):
 
     Methods:
         add_to_queue(...):
-            Put a device I/O function call on the worker_send queue.
+            Put an instruction on the worker_send queue.
 
         process_queue():
             Trigger processing the worker_send queue.
+            
+        queued_instruction(...):
+            Put an instruction on the worker_send queue and process the queue.
+            
     """
 
     def __init__(self,
@@ -367,7 +372,10 @@ class Worker_send(QtCore.QObject):
                         # Default job processing:
                         # Send I/O operation to the device
                         locker = QtCore.QMutexLocker(self.dev.mutex)
-                        func(*args)
+                        try:
+                            func(*args)
+                        except Exception as err:
+                            pft(err)
                         locker.unlock()
                     else:
                         # User-supplied job processing
@@ -390,20 +398,27 @@ class Worker_send(QtCore.QObject):
     #   add_to_queue
     # --------------------------------------------------------------------------
 
-    def add_to_queue(self, dev_io_function_call, pass_args=()):
-        """Put a device I/O function call on the worker_send queue.
+    def add_to_queue(self, instruction, pass_args=()):
+        """Put an instruction on the worker_send queue.
+        E.g. add_to_queue(self.dev.write, "toggle LED")
 
         Args:
-            dev_io_function_call:
-                E.g. self.dev.write
-
+            instruction:
+                Intended to be a reference to a device I/O function such as
+                'self.dev.write'. However, you have the freedom to be creative
+                and put e.g. strings decoding special instructions on the queue
+                as well. Handling such special cases must be programmed by the
+                user by supplying the argument 'alt_process_jobs_function', when
+                instantiating 'Worker_send', with your own job-processing-
+                routines function. See 'Worker_send' for more details.
+                
             pass_args (optional, default=()):
-                Argument(s) to be passed to the function call. Must be a tuple,
+                Argument(s) to be passed to the instruction. Must be a tuple,
                 but for convenience any other type will also be accepted if it
                 concerns just a single argument that needs to be passed.
         """
         if type(pass_args) is not tuple: pass_args = (pass_args,)
-        self.queue.put((dev_io_function_call, *pass_args))
+        self.queue.put((instruction, *pass_args))
 
     # --------------------------------------------------------------------------
     #   process_queue
@@ -413,6 +428,17 @@ class Worker_send(QtCore.QObject):
         """Trigger processing the worker_send queue.
         """
         self.qwc.wakeAll()
+
+    # --------------------------------------------------------------------------
+    #   queued_instruction
+    # --------------------------------------------------------------------------
+
+    def queued_instruction(self, instruction, pass_args=()):
+        """Put an instruction on the worker_send queue and process the queue.
+        See 'add_to_queue' for more details.
+        """
+        self.add_to_queue(instruction, pass_args)
+        self.process_queue()
 
 # ------------------------------------------------------------------------------
 #   create_and_set_up_threads

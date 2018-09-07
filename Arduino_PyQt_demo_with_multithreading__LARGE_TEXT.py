@@ -6,7 +6,7 @@ data using PyQt5 and PyQtGraph.
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__         = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__        = "07-09-2018"
+__date__        = "08-09-2018"
 __version__     = "2.0.0"
 
 import os
@@ -265,15 +265,15 @@ class MainWindow(QtWid.QWidget):
 
     @QtCore.pyqtSlot()
     def process_qpbt_wave_sine(self):
-        ard_pyqt.send_write("sine")
+        ard_pyqt.queued_write("sine")
 
     @QtCore.pyqtSlot()
     def process_qpbt_wave_square(self):
-        ard_pyqt.send_write("square")
+        ard_pyqt.queued_write("square")
 
     @QtCore.pyqtSlot()
     def process_qpbt_wave_sawtooth(self):
-        ard_pyqt.send_write("sawtooth")
+        ard_pyqt.queued_write("sawtooth")
 
     @QtCore.pyqtSlot(str)
     def set_text_qpbt_record(self, text_str):

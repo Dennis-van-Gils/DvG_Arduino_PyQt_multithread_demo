@@ -65,8 +65,8 @@ class Arduino_pyqt(QtCore.QObject):
         start_thread_worker_DAQ(...)
         start_thread_worker_send(...)
         close_threads()
-        send_write(...):
-            Send out a write message operation to the Arduino.
+        queued_write(...):
+            Write a message to the Arduino via the worker_send queue.
 
     Signals:
         worker_DAQ.signal_DAQ_updated():
@@ -110,12 +110,11 @@ class Arduino_pyqt(QtCore.QObject):
         self.create_and_set_up_threads()
 
     # --------------------------------------------------------------------------
-    #   send_write
+    #   queued_write
     # --------------------------------------------------------------------------
 
-    def send_write(self, msg_str):
-        """Send out a write message operation to the Arduino via the worker_send
-        queue.
+    def queued_write(self, msg_str):
+        """Send I/O operation 'write' with argument 'msg_str' to the Arduino via
+        the worker_send queue and process the queue.
         """
-        self.worker_send.add_to_queue(self.dev.write, msg_str)
-        self.worker_send.process_queue()
+        self.worker_send.queued_instruction(self.dev.write, msg_str)
