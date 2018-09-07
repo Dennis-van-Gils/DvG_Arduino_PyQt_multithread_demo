@@ -458,8 +458,8 @@ def start_thread_worker_send(self, priority=QtCore.QThread.InheritPriority):
 def close_threads(self):
     if self.thread_DAQ is not None:
         self.thread_DAQ.quit()
-        print("Closing thread %-9s: " %
-              self.thread_DAQ.objectName(), end='')
+        print("Closing thread %s " %
+              "{:.<16}".format(self.thread_DAQ.objectName()), end='')
         if self.thread_DAQ.wait(2000): print("done.\n", end='')
         else: print("FAILED.\n", end='')
 
@@ -467,7 +467,7 @@ def close_threads(self):
         self.worker_send.stop()
         self.worker_send.qwc.wakeAll()
         self.thread_send.quit()
-        print("Closing thread %-9s: " %
-              self.thread_send.objectName(), end='')
+        print("Closing thread %s " %
+              "{:.<16}".format(self.thread_send.objectName()), end='')
         if self.thread_send.wait(2000): print("done.\n", end='')
         else: print("FAILED.\n", end='')
