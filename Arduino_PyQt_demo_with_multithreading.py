@@ -6,7 +6,7 @@ data using PyQt5 and PyQtGraph.
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__         = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__        = "06-09-2018"
+__date__        = "07-09-2018"
 __version__     = "2.0.0"
 
 import os
