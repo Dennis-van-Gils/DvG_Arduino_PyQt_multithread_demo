@@ -310,7 +310,7 @@ def update_chart():
 
 def stop_running():
     app.processEvents()
-    ard_pyqt.close_threads()
+    ard_pyqt.close_all_threads()
     file_logger.close_log()
 
     print("Stopping timers: ", end='')

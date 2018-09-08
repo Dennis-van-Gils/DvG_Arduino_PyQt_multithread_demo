@@ -6,7 +6,7 @@ data using PyQt5 and PyQtGraph.
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__         = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__        = "07-09-2018"
+__date__        = "08-09-2018"
 __version__     = "2.0.0"
 
 import os
@@ -103,7 +103,7 @@ class MainWindow(QtWid.QWidget):
 def about_to_quit():
     print("\nAbout to quit")
     app.processEvents()
-    ard_pyqt.close_threads()
+    ard_pyqt.close_all_threads()
 
     print("Stopping timers: ", end='')
     timer_chart.stop()

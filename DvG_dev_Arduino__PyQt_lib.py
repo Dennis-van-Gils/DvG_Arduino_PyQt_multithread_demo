@@ -53,7 +53,7 @@ class Arduino_pyqt(QtCore.QObject):
     Main methods:
         (*) start_thread_worker_DAQ(...)
         (*) start_thread_worker_send(...)
-        (*) close_threads()
+        (*) close_all_threads()
         
         queued_write(...):
             Write a message to the Arduino via the worker_send queue.
@@ -64,10 +64,11 @@ class Arduino_pyqt(QtCore.QObject):
     """
     from DvG_dev_Base__PyQt_lib import (Worker_DAQ,
                                         Worker_send,
-                                        create_and_set_up_threads,
+                                        create_thread_worker_DAQ,
+                                        create_thread_worker_send,
                                         start_thread_worker_DAQ,
                                         start_thread_worker_send,
-                                        close_threads)
+                                        close_all_threads)
 
     def __init__(self,
                  dev: Arduino_functions.Arduino,
@@ -93,7 +94,8 @@ class Arduino_pyqt(QtCore.QObject):
                 dev,
                 DEBUG=DEBUG_worker_send)
 
-        self.create_and_set_up_threads()
+        self.create_thread_worker_DAQ()
+        self.create_thread_worker_send()
 
     # --------------------------------------------------------------------------
     #   queued_write

@@ -6,9 +6,9 @@ and periodical data acquisition for an I/O device.
 MODUS OPERANDI:
 ---------------
 
-    All device I/O operations will be offloaded to 'workers', each running in 
+    All device I/O operations will be offloaded to 'workers', each running in
     a newly created thread instead of in the main/GUI thread.
-        
+
         - Worker_DAQ:
             Periodically acquires data from the device.
 
@@ -25,22 +25,25 @@ CONTENTS:
             Signals:
                 signal_DAQ_updated()
                 signal_connection_lost()
-    
+
         Worker_send(...)
             Methods:
                 add_to_queue(...)
                 process_queue()
                 queued_instruction(...)
-    
+
     Functions:
-        create_and_set_up_threads()
+        create_thread_worker_DAQ()
+        create_thread_worker_send()
         start_thread_worker_DAQ(...)
         start_thread_worker_send(...)
-        close_threads()
+        close_thread_worker_DAQ()
+        close_thread_worker_send()
+        close_all_threads()
 """
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
-__url__         = "https://github.com/Dennis-van-Gils/DvG_dev_Arduino"
+__url__         = ""
 __date__        = "08-09-2018"
 __version__     = "2.0.0"
 
@@ -302,7 +305,7 @@ class Worker_send(QtCore.QObject):
 
         process_queue():
             Trigger processing the worker_send queue.
-            
+
         queued_instruction(...):
             Put an instruction on the worker_send queue and process the queue.
     """
@@ -407,7 +410,7 @@ class Worker_send(QtCore.QObject):
                 user by supplying the argument 'alt_process_jobs_function', when
                 instantiating 'Worker_send', with your own job-processing-
                 routines function. See 'Worker_send' for more details.
-                
+
             pass_args (optional, default=()):
                 Argument(s) to be passed to the instruction. Must be a tuple,
                 but for convenience any other type will also be accepted if it
@@ -437,22 +440,25 @@ class Worker_send(QtCore.QObject):
         self.process_queue()
 
 # ------------------------------------------------------------------------------
-#   create_and_set_up_threads
+#   Create and set up threads
 # ------------------------------------------------------------------------------
 
-def create_and_set_up_threads(self):
+def create_thread_worker_DAQ(self):
     if self.dev.is_alive:
         self.thread_DAQ = QtCore.QThread()
         self.thread_DAQ.setObjectName("%s_DAQ" % self.dev.name)
         self.worker_DAQ.moveToThread(self.thread_DAQ)
         self.thread_DAQ.started.connect(self.worker_DAQ.run)
+    else:
+        self.thread_DAQ = None
 
+def create_thread_worker_send(self):
+    if self.dev.is_alive:
         self.thread_send = QtCore.QThread()
         self.thread_send.setObjectName("%s_send" % self.dev.name)
         self.worker_send.moveToThread(self.thread_send)
         self.thread_send.started.connect(self.worker_send.run)
     else:
-        self.thread_DAQ = None
         self.thread_send = None
 
 # ------------------------------------------------------------------------------
@@ -460,24 +466,32 @@ def create_and_set_up_threads(self):
 # ------------------------------------------------------------------------------
 
 def start_thread_worker_DAQ(self, priority=QtCore.QThread.InheritPriority):
+    """Returns True when successful, False otherwise.
+    """
     if self.thread_DAQ is not None:
         self.thread_DAQ.start(priority)
+        return True
     else:
         print("Worker_DAQ  %s: Can't start because device is not alive." %
               self.dev.name)
+        return False
 
 def start_thread_worker_send(self, priority=QtCore.QThread.InheritPriority):
+    """Returns True when successful, False otherwise.
+    """
     if self.thread_send is not None:
         self.thread_send.start(priority)
+        return True
     else:
         print("Worker_send %s: Can't start because device is not alive." %
               self.dev.name)
+        return False
 
 # ------------------------------------------------------------------------------
-#   close_threads
+#   Close threads
 # ------------------------------------------------------------------------------
 
-def close_threads(self):
+def close_thread_worker_DAQ(self):
     if self.thread_DAQ is not None:
         self.thread_DAQ.quit()
         print("Closing thread %s " %
@@ -485,6 +499,7 @@ def close_threads(self):
         if self.thread_DAQ.wait(2000): print("done.\n", end='')
         else: print("FAILED.\n", end='')
 
+def close_thread_worker_send(self):
     if self.thread_send is not None:
         self.worker_send.stop()
         self.worker_send.qwc.wakeAll()
@@ -493,3 +508,7 @@ def close_threads(self):
               "{:.<16}".format(self.thread_send.objectName()), end='')
         if self.thread_send.wait(2000): print("done.\n", end='')
         else: print("FAILED.\n", end='')
+
+def close_all_threads(self):
+    if hasattr(self, 'thread_DAQ') : close_thread_worker_DAQ(self)
+    if hasattr(self, 'thread_send'): close_thread_worker_send(self)
