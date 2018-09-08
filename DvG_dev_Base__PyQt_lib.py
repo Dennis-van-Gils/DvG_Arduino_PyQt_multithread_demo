@@ -6,40 +6,37 @@ and periodical data acquisition for an I/O device.
 MODUS OPERANDI:
 ---------------
 
-All device I/O operations will be offloaded to 'workers' that each will be
-running in a newly created thread, instead of in the main/GUI thread.
+    All device I/O operations will be offloaded to 'workers', each running in 
+    a newly created thread instead of in the main/GUI thread.
+        
+        - Worker_DAQ:
+            Periodically acquires data from the device.
 
-    - Worker_DAQ
-        Periodically acquires data from the device.
-        See Worker_DAQ for details.
-
-    - Worker_send
-        Maintains a thread-safe queue where desired device I/O operations can be
-        put onto, and sends the queued operations first in first out (FIFO) to
-        the device.
-        See Worker_send for details.
+        - Worker_send:
+            Maintains a thread-safe queue where desired device I/O operations
+            can be put onto, and sends the queued operations first in first out
+            (FIFO) to the device.
 
 CONTENTS:
 ---------
 
-Classes:
-    Worker_DAQ(...)
-        Signals:
-            signal_DAQ_updated()
-            signal_connection_lost()
-
-    Worker_send(...)
-        Methods:
-            add_to_queue(...)
-            process_queue()
-            queued_instruction(...)
-
-Functions:
-    create_and_set_up_threads()
-    start_thread_worker_DAQ(...)
-    start_thread_worker_send(...)
-    close_threads()
-
+    Classes:
+        Worker_DAQ(...)
+            Signals:
+                signal_DAQ_updated()
+                signal_connection_lost()
+    
+        Worker_send(...)
+            Methods:
+                add_to_queue(...)
+                process_queue()
+                queued_instruction(...)
+    
+    Functions:
+        create_and_set_up_threads()
+        start_thread_worker_DAQ(...)
+        start_thread_worker_send(...)
+        close_threads()
 """
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
@@ -82,10 +79,10 @@ class Worker_DAQ(QtCore.QObject):
         dev:
             Reference to a 'device' instance with I/O methods.
 
-        update_interval_ms:
+        DAQ_update_interval_ms:
             Desired data acquisition update interval in milliseconds.
 
-        function_to_run_each_update (optional, default=None):
+        DAQ_function_to_run_each_update (optional, default=None):
             Reference to a user-supplied function containing the device query
             operations and subsequent data processing, to be invoked every DAQ
             update. It should return True when everything went successful, and
@@ -113,12 +110,12 @@ class Worker_DAQ(QtCore.QObject):
 
                 return True
 
-        critical_not_alive_count (optional, default=1):
+        DAQ_critical_not_alive_count (optional, default=1):
             The worker will allow for up to a certain number of communication
             failures with the device before hope is given up and a 'connection
             lost' signal is emitted. Use at your own discretion.
 
-        timer_type (PyQt5.QtCore.Qt.TimerType, optional, default=
+        DAQ_timer_type (PyQt5.QtCore.Qt.TimerType, optional, default=
                     PyQt5.QtCore.Qt.CoarseTimer):
             The update interval is timed to a QTimer running inside Worker_DAQ.
             The accuracy of the timer can be improved by setting it to
@@ -142,10 +139,10 @@ class Worker_DAQ(QtCore.QObject):
 
     def __init__(self,
                  dev,
-                 update_interval_ms,
-                 function_to_run_each_update=None,
-                 critical_not_alive_count=3,
-                 timer_type=QtCore.Qt.CoarseTimer,
+                 DAQ_update_interval_ms,
+                 DAQ_function_to_run_each_update=None,
+                 DAQ_critical_not_alive_count=3,
+                 DAQ_timer_type=QtCore.Qt.CoarseTimer,
                  DEBUG=False):
         super().__init__(None)
         self.DEBUG = DEBUG
@@ -154,11 +151,11 @@ class Worker_DAQ(QtCore.QObject):
         self.dev = dev
         self.dev.update_counter = 0
         self.dev.not_alive_counter = 0
-        self.dev.critical_not_alive_count = critical_not_alive_count
+        self.dev.critical_not_alive_count = DAQ_critical_not_alive_count
 
-        self.update_interval_ms = update_interval_ms
-        self.function_to_run_each_update = function_to_run_each_update
-        self.timer_type = timer_type
+        self.update_interval_ms = DAQ_update_interval_ms
+        self.function_to_run_each_update = DAQ_function_to_run_each_update
+        self.timer_type = DAQ_timer_type
 
         # Calculate the DAQ rate around every 1 sec
         self.calc_DAQ_rate_every_N_iter = round(1e3/self.update_interval_ms)
@@ -308,7 +305,6 @@ class Worker_send(QtCore.QObject):
             
         queued_instruction(...):
             Put an instruction on the worker_send queue and process the queue.
-            
     """
 
     def __init__(self,
