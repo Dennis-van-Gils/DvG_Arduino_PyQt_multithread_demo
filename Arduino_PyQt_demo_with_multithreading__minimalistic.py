@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Multithreaded demonstration of real-time plotting of live Arduino data using
-PyQt5 and PyQtGraph.
+"""Demonstration of multithreaded real-time plotting and logging of live Arduino
+data using PyQt5 and PyQtGraph.
 """
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__         = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__        = "05-09-2018"
-__version__     = "1.0.1"
+__date__        = "08-09-2018"
+__version__     = "2.0.0"
 
 import os
 import sys
-import psutil
 from pathlib import Path
+
+import numpy as np
+import psutil
 
 from PyQt5 import QtCore
 from PyQt5 import QtWidgets as QtWid
 from PyQt5.QtCore import QDateTime
-
 import pyqtgraph as pg
-import numpy as np
 
 from DvG_PyQt_ChartHistory import ChartHistory
 from DvG_debug_functions   import dprint, print_fancy_traceback as pft
@@ -30,14 +30,14 @@ import DvG_dev_Arduino__PyQt_lib   as Arduino_pyqt_lib
 # Constants
 UPDATE_INTERVAL_ARDUINO = 10  # 10 [ms]
 UPDATE_INTERVAL_CHART   = 10  # 10 [ms]
-CHART_HISTORY_TIME = 10       # 10 [s]
+CHART_HISTORY_TIME      = 10  # 10 [s]
 
 # Global variables for date-time keeping
 cur_date_time = QDateTime.currentDateTime()
 str_cur_date  = cur_date_time.toString("dd-MM-yyyy")
 str_cur_time  = cur_date_time.toString("HH:mm:ss")
 
-# Show debug info in terminal? Warning: slow! Do not leave on unintentionally.
+# Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
 DEBUG = False
 
 # ------------------------------------------------------------------------------
@@ -51,10 +51,11 @@ class State(object):
     def __init__(self):
         self.time = np.nan          # [ms]
         self.reading_1 = np.nan
-        
+
         # Mutex for proper multithreading. If the state variables are not
         # atomic or thread-safe, you should lock and unlock this mutex for each
-        # read and write operation. In this demo we don't need it.
+        # read and write operation. In this demo we don't need it, but I keep it
+        # as reminder.
         self.mutex = QtCore.QMutex()
 
 state = State()
@@ -66,15 +67,15 @@ state = State()
 class MainWindow(QtWid.QWidget):
     def __init__(self, parent=None, **kwargs):
         super().__init__(parent, **kwargs)
-        
+
         self.setGeometry(50, 50, 800, 660)
         self.setWindowTitle("Multithread PyQt & Arduino demo")
-        
+
         # Create PlotItem
         self.gw_chart = pg.GraphicsWindow()
         self.gw_chart.setBackground([20, 20, 20])
         self.pi_chart = self.gw_chart.addPlot()
-        
+
         p = {'color': '#BBB', 'font-size': '10pt'}
         self.pi_chart.showGrid(x=1, y=1)
         self.pi_chart.setTitle('Arduino timeseries', **p)
@@ -84,13 +85,13 @@ class MainWindow(QtWid.QWidget):
             xRange=[-1.04 * CHART_HISTORY_TIME, CHART_HISTORY_TIME * 0.04],
             yRange=[-1.1, 1.1],
             disableAutoRange=True)
-        
+
         # Create ChartHistory and PlotDataItem and link them together
         PEN_01 = pg.mkPen(color=[0, 200, 0], width=3)
         num_samples = round(CHART_HISTORY_TIME*1e3/UPDATE_INTERVAL_ARDUINO)
         self.CH_1 = ChartHistory(num_samples, self.pi_chart.plot(pen=PEN_01))
         self.CH_1.x_axis_divisor = 1000     # From [ms] to [s]
-        
+
         vbox = QtWid.QVBoxLayout(self)
         vbox.addWidget(self.gw_chart, 1)
 
@@ -101,23 +102,17 @@ class MainWindow(QtWid.QWidget):
 @QtCore.pyqtSlot()
 def about_to_quit():
     print("\nAbout to quit")
-    
-    # First make sure to process all pending events
     app.processEvents()
-    
-    # Close Arduino worker threads
-    ard_pyqt.close_threads()
-    
-    # Stop timers
+    ard_pyqt.close_all_threads()
+
     print("Stopping timers: ", end='')
     timer_chart.stop()
     print("done.")
-    
-    # Close serial connections
+
     ard.close()
 
 # ------------------------------------------------------------------------------
-#   Your Arduino update function(s)
+#   Your Arduino update function
 # ------------------------------------------------------------------------------
 
 def my_Arduino_DAQ_update():
@@ -133,13 +128,13 @@ def my_Arduino_DAQ_update():
         dprint("'%s' reports IOError @ %s %s" %
                (ard.name, str_cur_date, str_cur_time))
         return False
-    
+
     # Parse readings into separate state variables
     try:
         [state.time, state.reading_1] = tmp_state
     except Exception as err:
         pft(err, 3)
-        dprint("'%s' reports IOError @ %s %s" % 
+        dprint("'%s' reports IOError @ %s %s" %
                (ard.name, str_cur_date, str_cur_time))
         return False
 
@@ -158,43 +153,39 @@ def my_Arduino_DAQ_update():
 # ------------------------------------------------------------------------------
 
 if __name__ == '__main__':
-    # Set this process priority to maximum in the operating system
-    print("PID: %s" % os.getpid())
+    # Set priority of this process to maximum in the operating system
+    print("PID: %s\n" % os.getpid())
     try:
         proc = psutil.Process(os.getpid())
-        if os.name == "nt": # Windows
-            proc.nice(psutil.REALTIME_PRIORITY_CLASS)
-        else:               # Other OS's
-            proc.nice(-20)
+        if os.name == "nt": proc.nice(psutil.REALTIME_PRIORITY_CLASS) # Windows
+        else: proc.nice(-20)                                          # Other
     except:
-        print("Warning: Could not set process to maximum priority.")
-    
+        print("Warning: Could not set process to maximum priority.\n")
+
     # --------------------------------------------------------------------------
-    #   Connect to Arduino(s)
+    #   Connect to Arduino
     # --------------------------------------------------------------------------
-    
+
     ard = Arduino_functions.Arduino(name="Ard", baudrate=115200)
-    ard.auto_connect(Path("last_used_port.txt"), 
+    ard.auto_connect(Path("last_used_port.txt"),
                      match_identity="Wave generator")
 
     if not(ard.is_alive):
-        print("\nCheck connection and try resetting the Arduino(s)")
+        print("\nCheck connection and try resetting the Arduino.")
         print("Exiting...\n")
         sys.exit(0)
-        
+
     # --------------------------------------------------------------------------
     #   Create application and main window
     # --------------------------------------------------------------------------
-    
+    QtCore.QThread.currentThread().setObjectName('MAIN')    # For DEBUG info
+
     app = 0    # Work-around for kernel crash when using Spyder IDE
     app = QtWid.QApplication(sys.argv)
     app.aboutToQuit.connect(about_to_quit)
-    
-    # For DEBUG info
-    QtCore.QThread.currentThread().setObjectName('MAIN')
 
     window = MainWindow()
-    
+
     # --------------------------------------------------------------------------
     #   Set up communication threads for the Arduino(s)
     # --------------------------------------------------------------------------
@@ -203,7 +194,7 @@ if __name__ == '__main__':
     ard_pyqt = Arduino_pyqt_lib.Arduino_pyqt(ard,
                                              UPDATE_INTERVAL_ARDUINO,
                                              my_Arduino_DAQ_update)
-    
+
     # Start threads
     ard_pyqt.start_thread_worker_DAQ()
 
@@ -216,9 +207,8 @@ if __name__ == '__main__':
     timer_chart.start(UPDATE_INTERVAL_CHART)
 
     # --------------------------------------------------------------------------
-    #   Start the main GUI loop
+    #   Start the main GUI event loop
     # --------------------------------------------------------------------------
-    
-    window.show()
 
+    window.show()
     sys.exit(app.exec_())

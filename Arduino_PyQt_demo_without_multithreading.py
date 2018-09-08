@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Single-threaded demonstration of real-time plotting and logging of live
-Arduino data using PyQt5 and PyQtGraph.
+"""Demonstration of single-threaded real-time plotting and logging of live Arduino
+data using PyQt5 and PyQtGraph.
 
 NOTE: This demonstrates the bad case of what happens when both the acquisition
 and the plotting happen on the same thread. You should observe a drop in the
@@ -10,20 +10,20 @@ acquisition rate (DAQ rate) when you e.g. rapidly resize the window.
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__         = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__        = "05-09-2018"
-__version__     = "1.0.1"
+__date__        = "07-09-2018"
+__version__     = "2.0.0"
 
 import os
 import sys
-import psutil
 from pathlib import Path
+
+import numpy as np
+import psutil
 
 from PyQt5 import QtCore, QtGui
 from PyQt5 import QtWidgets as QtWid
 from PyQt5.QtCore import QDateTime
-
 import pyqtgraph as pg
-import numpy as np
 
 from DvG_PyQt_FileLogger   import FileLogger
 from DvG_PyQt_ChartHistory import ChartHistory
@@ -35,14 +35,14 @@ import DvG_dev_Arduino__fun_serial as Arduino_functions
 # Constants
 UPDATE_INTERVAL_ARDUINO = 10  # 10 [ms]
 UPDATE_INTERVAL_CHART   = 10  # 10 [ms]
-CHART_HISTORY_TIME = 10       # 10 [s]
+CHART_HISTORY_TIME      = 10  # 10 [s]
 
 # Global variables for date-time keeping
 cur_date_time = QDateTime.currentDateTime()
 str_cur_date  = cur_date_time.toString("dd-MM-yyyy")
 str_cur_time  = cur_date_time.toString("HH:mm:ss")
 
-# Show debug info in terminal? Warning: slow! Do not leave on unintentionally.
+# Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
 DEBUG = False
 
 # ------------------------------------------------------------------------------
@@ -278,23 +278,17 @@ def update_chart():
 @QtCore.pyqtSlot()
 def about_to_quit():
     print("\nAbout to quit")
-    
-    # First make sure to process all pending events
     app.processEvents()
-
-    # Close log
     file_logger.close_log()
     
-    # Stop timers
     print("Stopping timers: ", end='')
     timer_chart.stop()
     print("done.")
-        
-    # Close serial connections
+
     ard.close()
 
 # ------------------------------------------------------------------------------
-#   Your Arduino update function(s)
+#   Your Arduino update function
 # ------------------------------------------------------------------------------
 
 @QtCore.pyqtSlot()
@@ -334,7 +328,7 @@ def my_Arduino_DAQ_update():
 
     # Use Arduino time or PC time?
     # Arduino time is more accurate, but rolls over ~49 days for a 32 bit timer.
-    use_PC_time = False
+    use_PC_time = True
     if use_PC_time: state.time = cur_date_time.toMSecsSinceEpoch()
 
     # Add readings to chart histories
@@ -363,19 +357,17 @@ def my_Arduino_DAQ_update():
 # ------------------------------------------------------------------------------
 
 if __name__ == '__main__':
-    # Set this process priority to maximum in the operating system
-    print("PID: %s" % os.getpid())
+    # Set priority of this process to maximum in the operating system
+    print("PID: %s\n" % os.getpid())
     try:
         proc = psutil.Process(os.getpid())
-        if os.name == "nt": # Windows
-            proc.nice(psutil.REALTIME_PRIORITY_CLASS)
-        else:               # Other OS's
-            proc.nice(-20)
+        if os.name == "nt": proc.nice(psutil.REALTIME_PRIORITY_CLASS) # Windows
+        else: proc.nice(-20)                                          # Other
     except:
-        print("Warning: Could not set process to maximum priority.")
+        print("Warning: Could not set process to maximum priority.\n")
     
     # --------------------------------------------------------------------------
-    #   Connect to Arduino(s)
+    #   Connect to Arduino
     # --------------------------------------------------------------------------
     
     ard = Arduino_functions.Arduino(name="Ard", baudrate=115200)
@@ -383,7 +375,7 @@ if __name__ == '__main__':
                      match_identity="Wave generator")
 
     if not(ard.is_alive):
-        print("\nCheck connection and try resetting the Arduino(s)")
+        print("\nCheck connection and try resetting the Arduino.")
         print("Exiting...\n")
         sys.exit(0)
         
@@ -398,7 +390,7 @@ if __name__ == '__main__':
     window = MainWindow()
     
     # --------------------------------------------------------------------------
-    #   Create file logger
+    #   File logger
     # --------------------------------------------------------------------------
 
     file_logger = FileLogger()
@@ -417,9 +409,8 @@ if __name__ == '__main__':
     timer_chart.start(UPDATE_INTERVAL_CHART)
 
     # --------------------------------------------------------------------------
-    #   Start the main GUI loop
+    #   Start the main GUI event loop
     # --------------------------------------------------------------------------
     
     window.show()
-
     sys.exit(app.exec_())
