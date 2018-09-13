@@ -2,47 +2,34 @@
 # -*- coding: utf-8 -*-
 """PyQt5 module to provide the base framework for multithreaded communication
 and periodical data acquisition for an I/O device.
-
-MODUS OPERANDI:
----------------
-
-    All device I/O operations will be offloaded to 'workers', each running in
-    a newly created thread instead of in the main/GUI thread.
-
-        - Worker_DAQ:
-            Periodically acquires data from the device.
-
-        - Worker_send:
-            Maintains a thread-safe queue where desired device I/O operations
-            can be put onto, and sends the queued operations first in first out
-            (FIFO) to the device.
-
-CONTENTS:
----------
+            
+MAIN CONTENTS:
+--------------
 
     Class:
         Dev_Base_pyqt(...)
-            Inner-classes:
-                Worker_DAQ(...)
-            
-                Worker_send(...)
-                    Methods:
-                        add_to_queue(...)
-                        process_queue()
-                        queued_instruction(...)
-                        
-            Main attributes:
-                obtained_DAQ_update_interval_ms
-                obtained_DAQ_rate_Hz
-                
             Methods:
-                create_thread_worker_DAQ()
-                create_thread_worker_send()
+                attach_device(...)
+                create_worker_DAQ()
+                create_worker_send()
                 start_thread_worker_DAQ(...)
                 start_thread_worker_send(...)
                 close_thread_worker_DAQ()
                 close_thread_worker_send()
                 close_all_threads()
+                
+            Inner-class instances:
+                worker_DAQ(...)
+                worker_send(...):
+                    Methods:
+                        add_to_queue(...)
+                        process_queue()
+                        queued_instruction(...)
+                        
+            Main data attributes:
+                DAQ_update_counter
+                obtained_DAQ_update_interval_ms
+                obtained_DAQ_rate_Hz
         
             Signals:
                 signal_DAQ_updated()
@@ -50,8 +37,8 @@ CONTENTS:
 """
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
-__url__         = ""
-__date__        = "13-09-2018"
+__url__         = "https://github.com/Dennis-van-Gils/DvG_dev_Arduino"
+__date__        = "14-09-2018"
 __version__     = "2.1.0"
 
 import queue
@@ -61,17 +48,16 @@ from DvG_debug_functions import ANSI, dprint, print_fancy_traceback as pft
 
 # Short-hand alias for DEBUG information
 def curThreadName(): return QtCore.QThread.currentThread().objectName()
-def get_tick(): return QtCore.QDateTime.currentMSecsSinceEpoch()
 
 # ------------------------------------------------------------------------------
 #   InnerClassDescriptor
 # ------------------------------------------------------------------------------
 
 class InnerClassDescriptor(object):
-    """Allows an inner class instance (e.g. self.worker_DAQ = self.Worker_DAQ)
-    to get the attributes, methods and signals from the outer class parent
-    instance by referring to 'self.outer'.
-    Usage: @InnerClassDescriptor
+    """Allows an inner class instance to get the attributes from the outer class
+    instance by referring to 'self.outer'. Used in this module by the
+    'Worker_DAQ' and 'Worker_send' classes. Usage: @InnerClassDescriptor.
+    Not to be used outside of this module.
     """
     def __init__(self, cls):
         self.cls = cls
@@ -87,15 +73,86 @@ class InnerClassDescriptor(object):
 # ------------------------------------------------------------------------------
 
 class Dev_Base_pyqt(QtCore.QObject):
-    """Outer class
-    
+    """This class provides the base framework for multithreaded communication
+    and periodical data acquisition for an I/O device. 
+            
+    All device I/O operations will be offloaded to 'workers', each running in 
+    a newly created thread instead of in the main/GUI thread.
+        
+        - Worker_DAQ:
+            Periodically acquires data from the device.
+
+        - Worker_send:
+            Maintains a thread-safe queue where desired device I/O operations
+            can be put onto, and sends the queued operations first in first out
+            (FIFO) to the device.
+            
+    This class can be mixed into your own specific device_pyqt class definition.
+    Hint: Look up 'mixin class' for Python.
+    E.g., when writing your own Arduino device pyqt library:
+        class Arduino_pyqt(Dev_Base_pyqt_lib.Dev_Base_pyqt, QtCore.QObject):
+                    
+    Methods:
+        attach_device(...)
+            Attach a reference to a 'device' instance with I/O methods.
+            
+        create_worker_DAQ():
+            Create a single instance of 'Worker_DAQ' and transfer it to a newly
+            created (PyQt5.QtCore.QThread) thread called 'thread_DAQ'.
+
+        create_worker_send():
+            Create a single instance of 'Worker_send' and transfer it to a newly
+            created (PyQt5.QtCore.QThread) thread called 'thread_send'.
+        
+        start_thread_worker_DAQ(...):
+            Start running the event loop of the 'worker_DAQ' thread.
+            I.e., start acquiring data periodically from the device.
+        
+        start_thread_worker_send(...):
+            Start running the event loop of the 'worker_send' thread.
+            I.e., start maintaining the desired device I/O operations queue.
+        
+        close_thread_worker_DAQ():
+            Stop 'worker_DAQ' and close its thread.
+            
+        close_thread_worker_send()
+            Stop 'worker_send' and close its thread.
+        
+        close_all_threads():
+            Stop all of any running workers and close their respective threads.
+            Safer and more convenient than calling 'close_thread_worker_DAQ' and
+            'close_thread_worker_send', individually.
+        
+    Inner-class instances:
+        worker_DAQ
+        worker_send    
+
+    Main data attributes:
+        dev:
+            Reference to a 'device' instance with I/O methods. Needs to be set
+            by calling 'attach_device(...)'.
+            
+        dev.mutex (PyQt5.QtCore.QMutex):
+            Mutex to allow for properly multithreaded device I/O operations.
+            
+        DAQ_update_counter:
+            Increments every time 'worker_DAQ' updates.
+            
+        obtained_DAQ_update_interval_ms:
+            Obtained time interval in milliseconds since the previous
+            'worker_DAQ' update.
+            
+        obtained_DAQ_rate_Hz:
+            Obtained acquisition rate of 'worker_DAQ' in Hertz, evaluated every
+            second.
+            
     Signals:
         signal_DAQ_updated:
-            Emitted by 'Worker_DAQ' when 'update' has finished.
+            Emitted by 'worker_DAQ' when 'update' has finished.
     
         signal_connection_lost:
             Indicates that we lost connection to the device, because one or more
-            device I/O operations failed. Emitted by 'Worker_DAQ' during
+            device I/O operations failed. Emitted by 'worker_DAQ' during
             'update' when 'DAQ_not_alive_counter' is equal to or larger than
             'worker_DAQ.critical_not_alive_count'.
     """
@@ -105,11 +162,143 @@ class Dev_Base_pyqt(QtCore.QObject):
     def __init__(self, parent):
         super(Dev_Base_pyqt, self).__init__(parent=parent)
         
+        self.dev = self.NoAttachedDevice()
+        self.worker_DAQ = None
+        self.worker_send = None
+        
         self.DAQ_update_counter = 0
         self.DAQ_not_alive_counter = 0
         
         self.obtained_DAQ_update_interval_ms = np.nan
         self.obtained_DAQ_rate_Hz = np.nan
+    
+    class NoAttachedDevice():
+        name = "NoAttachedDevice"
+        is_alive = False
+        mutex = None
+    
+    # --------------------------------------------------------------------------
+    #   attach_device
+    # --------------------------------------------------------------------------
+    
+    def attach_device(self, dev):
+        """Attach a reference to a 'device' instance with I/O methods.
+        """
+        if type(self.dev) == self.NoAttachedDevice:
+            self.dev = dev
+            self.dev.mutex = QtCore.QMutex()
+            
+    # --------------------------------------------------------------------------
+    #   Create workers
+    # --------------------------------------------------------------------------
+    
+    def create_worker_DAQ(self, *args, **kwargs):
+        self.worker_DAQ = self.Worker_DAQ(*args, **kwargs)
+        
+        if self.dev.is_alive:
+            self.thread_DAQ = QtCore.QThread()
+            self.thread_DAQ.setObjectName("%s_DAQ" % self.dev.name)
+            self.worker_DAQ.moveToThread(self.thread_DAQ)
+            self.thread_DAQ.started.connect(self.worker_DAQ.run)
+        else:
+            self.thread_DAQ = None
+        
+    def create_worker_send(self, *args, **kwargs):
+        self.worker_send = self.Worker_send(*args, **kwargs)
+        
+        if self.dev.is_alive:
+            self.thread_send = QtCore.QThread()
+            self.thread_send.setObjectName("%s_send" % self.dev.name)
+            self.worker_send.moveToThread(self.thread_send)
+            self.thread_send.started.connect(self.worker_send.run)
+        else:
+            self.thread_send = None
+            
+    # --------------------------------------------------------------------------
+    #   Start threads
+    # --------------------------------------------------------------------------
+    
+    def start_thread_worker_DAQ(self, priority=QtCore.QThread.InheritPriority):
+        """Start running the event loop of the worker thread.
+        
+        Args:
+            priority (PyQt5.QtCore.QThread.Priority, optional, default=
+                      QtCore.QThread.InheritPriority):
+                By default, the 'worker_DAQ' thread runs in the operating system
+                at the same thread priority as the main/GUI thread. You can
+                change to higher priority by setting 'priority' to, e.g.,
+                'QtCore.QThread.TimeCriticalPriority'. Be aware that this is
+                resource heavy, so use sparingly.
+        
+        Returns True when successful, False otherwise.
+        """
+        if hasattr(self, 'thread_DAQ'): 
+            if self.thread_DAQ is not None:
+                self.thread_DAQ.start(priority)
+                return True
+            else:
+                print("Worker_DAQ %s: Can't start thread because device is "
+                      "not alive." % self.dev.name)
+                return False
+        else:
+            pft("Worker_DAQ %s: Can't start thread because it does not exist. "
+                "Did you forget to call 'create_worker_DAQ' first?" % 
+                self.dev.name)
+            return False
+    
+    def start_thread_worker_send(self, priority=QtCore.QThread.InheritPriority):
+        """Start running the event loop of the worker thread.
+        
+        Args:
+            priority (PyQt5.QtCore.QThread.Priority, optional, default=
+                      QtCore.QThread.InheritPriority):
+                By default, the 'worker_send' thread runs in the operating system
+                at the same thread priority as the main/GUI thread. You can
+                change to higher priority by setting 'priority' to, e.g.,
+                'QtCore.QThread.TimeCriticalPriority'. Be aware that this is
+                resource heavy, so use sparingly.
+        
+        Returns True when successful, False otherwise.
+        """
+        if hasattr(self, 'thread_send'): 
+            if self.thread_send is not None:
+                self.thread_send.start(priority)
+                return True
+            else:
+                print("Worker_send %s: Can't start thread because device is "
+                      "not alive." % self.dev.name)
+                return False
+        else:
+            pft("Worker_send %s: Can't start thread because it does not exist. "
+                "Did you forget to call 'create_worker_send' first?" % 
+                self.dev.name)
+            return False
+    
+    # --------------------------------------------------------------------------
+    #   Close threads
+    # --------------------------------------------------------------------------
+    
+    def close_thread_worker_DAQ(self):
+        if self.thread_DAQ is not None:
+            self.thread_DAQ.quit()
+            print("Closing thread %s " %
+                  "{:.<16}".format(self.thread_DAQ.objectName()), end='')
+            if self.thread_DAQ.wait(2000): print("done.\n", end='')
+            else: print("FAILED.\n", end='')
+    
+    def close_thread_worker_send(self):
+        if self.thread_send is not None:
+            self.worker_send.stop()
+            self.worker_send.qwc.wakeAll()
+            self.thread_send.quit()
+            print("Closing thread %s " %
+                  "{:.<16}".format(self.thread_send.objectName()), end='')
+            if self.thread_send.wait(2000): print("done.\n", end='')
+            else: print("FAILED.\n", end='')
+    
+    def close_all_threads(self):
+        if hasattr(self, 'thread_DAQ') : self.close_thread_worker_DAQ()
+        if hasattr(self, 'thread_send'): self.close_thread_worker_send()
 
     # --------------------------------------------------------------------------
     #   Worker_DAQ
@@ -137,10 +326,7 @@ class Dev_Base_pyqt(QtCore.QObject):
         occasional unwanted interference/ground noise that messes with your data
         transmission.
     
-        Args:
-            dev:
-                Reference to a 'device' instance with I/O methods.
-    
+        Args:    
             DAQ_update_interval_ms:
                 Desired data acquisition update interval in milliseconds.
     
@@ -191,7 +377,6 @@ class Dev_Base_pyqt(QtCore.QObject):
                 unintentionally.
         """
         def __init__(self,
-                     dev,
                      DAQ_update_interval_ms,
                      DAQ_function_to_run_each_update=None,
                      DAQ_critical_not_alive_count=1,
@@ -201,7 +386,7 @@ class Dev_Base_pyqt(QtCore.QObject):
             self.DEBUG = DEBUG
             self.DEBUG_color = ANSI.CYAN
     
-            self.dev = dev
+            self.dev = self.outer.dev
             self.update_interval_ms = DAQ_update_interval_ms
             self.function_to_run_each_update = DAQ_function_to_run_each_update
             self.critical_not_alive_count = DAQ_critical_not_alive_count
@@ -238,7 +423,7 @@ class Dev_Base_pyqt(QtCore.QObject):
                        self.DEBUG_color)
     
             # Keep track of the obtained DAQ update interval
-            now = get_tick()
+            now = QtCore.QDateTime.currentMSecsSinceEpoch()
             self.outer.obtained_DAQ_update_interval_ms = (
                     now - self.prev_tick_DAQ_update)
             self.prev_tick_DAQ_update = now
@@ -254,7 +439,7 @@ class Dev_Base_pyqt(QtCore.QObject):
                         (now - self.prev_tick_DAQ_rate) * 1e3)
                 self.prev_tick_DAQ_rate = now
     
-            # Check the not alive counter.
+            # Check the not alive counter
             if (self.outer.DAQ_not_alive_counter >=
                 self.critical_not_alive_count):
                 dprint("\nWorker_DAQ %s: Determined device is not alive "
@@ -366,14 +551,13 @@ class Dev_Base_pyqt(QtCore.QObject):
         """
     
         def __init__(self,
-                     dev,
                      alt_process_jobs_function=None,
                      DEBUG=False):
             super().__init__(None)
             self.DEBUG = DEBUG
             self.DEBUG_color = ANSI.YELLOW
     
-            self.dev = dev
+            self.dev = self.outer.dev
             self.alt_process_jobs_function = alt_process_jobs_function
     
             self.running = True
@@ -495,77 +679,3 @@ class Dev_Base_pyqt(QtCore.QObject):
             """
             self.add_to_queue(instruction, pass_args)
             self.process_queue()
-    
-    # --------------------------------------------------------------------------
-    #   Create and set up threads
-    # --------------------------------------------------------------------------
-    
-    def create_thread_worker_DAQ(self):
-        if self.dev.is_alive:
-            self.thread_DAQ = QtCore.QThread()
-            self.thread_DAQ.setObjectName("%s_DAQ" % self.dev.name)
-            self.worker_DAQ.moveToThread(self.thread_DAQ)
-            self.thread_DAQ.started.connect(self.worker_DAQ.run)
-        else:
-            self.thread_DAQ = None
-    
-    def create_thread_worker_send(self):
-        if self.dev.is_alive:
-            self.thread_send = QtCore.QThread()
-            self.thread_send.setObjectName("%s_send" % self.dev.name)
-            self.worker_send.moveToThread(self.thread_send)
-            self.thread_send.started.connect(self.worker_send.run)
-        else:
-            self.thread_send = None
-    
-    # --------------------------------------------------------------------------
-    #   Start threads
-    # --------------------------------------------------------------------------
-    
-    def start_thread_worker_DAQ(self, priority=QtCore.QThread.InheritPriority):
-        """Returns True when successful, False otherwise.
-        """
-        if self.thread_DAQ is not None:
-            self.thread_DAQ.start(priority)
-            return True
-        else:
-            print("Worker_DAQ  %s: Can't start because device is not alive." %
-                  self.dev.name)
-            return False
-    
-    def start_thread_worker_send(self, priority=QtCore.QThread.InheritPriority):
-        """Returns True when successful, False otherwise.
-        """
-        if self.thread_send is not None:
-            self.thread_send.start(priority)
-            return True
-        else:
-            print("Worker_send %s: Can't start because device is not alive." %
-                  self.dev.name)
-            return False
-    
-    # --------------------------------------------------------------------------
-    #   Close threads
-    # --------------------------------------------------------------------------
-    
-    def close_thread_worker_DAQ(self):
-        if self.thread_DAQ is not None:
-            self.thread_DAQ.quit()
-            print("Closing thread %s " %
-                  "{:.<16}".format(self.thread_DAQ.objectName()), end='')
-            if self.thread_DAQ.wait(2000): print("done.\n", end='')
-            else: print("FAILED.\n", end='')
-    
-    def close_thread_worker_send(self):
-        if self.thread_send is not None:
-            self.worker_send.stop()
-            self.worker_send.qwc.wakeAll()
-            self.thread_send.quit()
-            print("Closing thread %s " %
-                  "{:.<16}".format(self.thread_send.objectName()), end='')
-            if self.thread_send.wait(2000): print("done.\n", end='')
-            else: print("FAILED.\n", end='')
-    
-    def close_all_threads(self):
-        if hasattr(self, 'thread_DAQ') : self.close_thread_worker_DAQ()
-        if hasattr(self, 'thread_send'): self.close_thread_worker_send()
