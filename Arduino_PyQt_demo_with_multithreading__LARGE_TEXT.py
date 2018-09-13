@@ -6,8 +6,8 @@ data using PyQt5 and PyQtGraph.
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__         = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__        = "08-09-2018"
-__version__     = "2.0.0"
+__date__        = "14-09-2018"
+__version__     = "2.1.0"
 
 import os
 import sys
@@ -285,8 +285,8 @@ class MainWindow(QtWid.QWidget):
 @QtCore.pyqtSlot()
 def update_GUI():
     window.qlbl_cur_date_time.setText("%s    %s" % (str_cur_date, str_cur_time))
-    window.qlbl_update_counter.setText("%i" % ard.update_counter)
-    window.qlbl_DAQ_rate.setText("DAQ: %.1f Hz" % ard.obtained_DAQ_rate)
+    window.qlbl_update_counter.setText("%i" % ard_pyqt.DAQ_update_counter)
+    window.qlbl_DAQ_rate.setText("DAQ: %.1f Hz" % ard_pyqt.obtained_DAQ_rate_Hz)
     window.qlin_reading_t.setText("%i" % state.time)
     window.qlin_reading_1.setText("%.4f" % state.reading_1)
 
@@ -451,8 +451,8 @@ if __name__ == '__main__':
                                              my_Arduino_DAQ_update)
 
     # Connect signals to slots
-    ard_pyqt.worker_DAQ.signal_DAQ_updated.connect(update_GUI)
-    ard_pyqt.worker_DAQ.signal_connection_lost.connect(notify_connection_lost)
+    ard_pyqt.signal_DAQ_updated.connect(update_GUI)
+    ard_pyqt.signal_connection_lost.connect(notify_connection_lost)
 
     # Start threads
     ard_pyqt.start_thread_worker_DAQ(QtCore.QThread.TimeCriticalPriority)

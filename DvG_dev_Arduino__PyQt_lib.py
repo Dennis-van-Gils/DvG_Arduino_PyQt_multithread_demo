@@ -6,11 +6,12 @@ acquisition for an Arduino(-like) device.
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__         = "https://github.com/Dennis-van-Gils/DvG_dev_Arduino"
-__date__        = "08-09-2018"
-__version__     = "2.0.0"
+__date__        = "14-09-2018"
+__version__     = "2.1.0"
 
 from PyQt5 import QtCore
 import DvG_dev_Arduino__fun_serial as Arduino_functions
+import DvG_dev_Base__PyQt_lib      as Dev_Base_pyqt_lib
 
 # Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
 DEBUG_worker_DAQ  = False
@@ -20,7 +21,7 @@ DEBUG_worker_send = False
 #   Arduino_pyqt
 # ------------------------------------------------------------------------------
 
-class Arduino_pyqt(QtCore.QObject):
+class Arduino_pyqt(Dev_Base_pyqt_lib.Dev_Base_pyqt, QtCore.QObject):
     """Manages multithreaded communication and periodical data acquisition for
     an Arduino(-like) device.
 
@@ -46,10 +47,6 @@ class Arduino_pyqt(QtCore.QObject):
         (*) DAQ_critical_not_alive_count
         (*) DAQ_timer_type
         
-    Class instances:
-        (*) worker_DAQ
-        (*) worker_send
-
     Main methods:
         (*) start_thread_worker_DAQ(...)
         (*) start_thread_worker_send(...)
@@ -57,19 +54,20 @@ class Arduino_pyqt(QtCore.QObject):
         
         queued_write(...):
             Write a message to the Arduino via the worker_send queue.
+        
+    Inner-class instances:
+        (*) worker_DAQ
+        (*) worker_send
+        
+    Main data attributes:
+        (*) DAQ_update_counter
+        (*) obtained_DAQ_update_interval_ms
+        (*) obtained_DAQ_rate_Hz
 
     Signals:
-        (*) worker_DAQ.signal_DAQ_updated()
-        (*) worker_DAQ.signal_connection_lost()
+        (*) signal_DAQ_updated()
+        (*) signal_connection_lost()
     """
-    from DvG_dev_Base__PyQt_lib import (Worker_DAQ,
-                                        Worker_send,
-                                        create_thread_worker_DAQ,
-                                        create_thread_worker_send,
-                                        start_thread_worker_DAQ,
-                                        start_thread_worker_send,
-                                        close_all_threads)
-
     def __init__(self,
                  dev: Arduino_functions.Arduino,
                  DAQ_update_interval_ms,
@@ -79,23 +77,15 @@ class Arduino_pyqt(QtCore.QObject):
                  parent=None):
         super(Arduino_pyqt, self).__init__(parent=parent)
 
-        self.dev = dev
-        self.dev.mutex = QtCore.QMutex()
+        self.attach_device(dev)
 
-        self.worker_DAQ = self.Worker_DAQ(
-                dev,
-                DAQ_update_interval_ms,
-                DAQ_function_to_run_each_update,
-                DAQ_critical_not_alive_count,
-                DAQ_timer_type,
-                DEBUG=DEBUG_worker_DAQ)
+        self.create_worker_DAQ(DAQ_update_interval_ms,
+                               DAQ_function_to_run_each_update,
+                               DAQ_critical_not_alive_count,
+                               DAQ_timer_type,
+                               DEBUG=DEBUG_worker_DAQ)
 
-        self.worker_send = self.Worker_send(
-                dev,
-                DEBUG=DEBUG_worker_send)
-
-        self.create_thread_worker_DAQ()
-        self.create_thread_worker_send()
+        self.create_worker_send(DEBUG=DEBUG_worker_send)
 
     # --------------------------------------------------------------------------
     #   queued_write
