@@ -11,7 +11,7 @@ For convenience all dependendies on my libraries are already embedded in this pa
 
 * [DvG_dev_Arduino](https://github.com/Dennis-van-Gils/DvG_dev_Arduino)
 * [DvG_debug_functions](https://github.com/Dennis-van-Gils/DvG_debug_functions)
-* [DvG_PyQt_misc](https://github.com/Dennis-van-Gils/DvG_PyQt_misc)
+* [DvG_pyqt_misc](https://github.com/Dennis-van-Gils/DvG_pyqt_misc)
 
 Third-party depencies you'll need for this demo:
 
