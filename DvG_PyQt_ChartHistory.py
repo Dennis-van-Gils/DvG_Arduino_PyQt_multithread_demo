@@ -45,8 +45,8 @@ Class:
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__         = "https://github.com/Dennis-van-Gils/DvG_PyQt_misc"
-__date__        = "04-09-2018"
-__version__     = "1.0.1"
+__date__        = "14-09-2018"
+__version__     = "1.0.0"
 
 import collections
 

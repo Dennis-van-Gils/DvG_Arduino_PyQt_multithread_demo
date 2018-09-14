@@ -39,7 +39,7 @@ __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__         = "https://github.com/Dennis-van-Gils/DvG_dev_Arduino"
 __date__        = "14-09-2018"
-__version__     = "2.1.0"
+__version__     = "1.0.0"
 
 import queue
 import numpy as np
