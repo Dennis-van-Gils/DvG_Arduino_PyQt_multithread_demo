@@ -39,7 +39,7 @@ __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__         = "https://github.com/Dennis-van-Gils/DvG_dev_Arduino"
 __date__        = "14-09-2018"
-__version__     = "1.0.1"
+__version__     = "1.0.2"
 
 import queue
 import numpy as np
@@ -187,6 +187,9 @@ class Dev_Base_pyqt(QtCore.QObject):
         if type(self.dev) == self.NoAttachedDevice:
             self.dev = dev
             self.dev.mutex = QtCore.QMutex()
+        else:
+            pft("Device can be attached only once. Already attached to '%s'." %
+                self.dev.name)
 
     # --------------------------------------------------------------------------
     #   Create workers
@@ -336,9 +339,9 @@ class Dev_Base_pyqt(QtCore.QObject):
                 every DAQ update. It should return True when everything went
                 successful, and False otherwise.
 
-                NOTE: No changes to the GUI should run inside this function! If
-                you do anyhow, expect a penalty in the timing stability of this
-                worker.
+                NOTE: No direct changes to the GUI should run inside this
+                function! If you do anyhow, expect a penalty in the timing
+                stability of this worker.
 
                 E.g. pseudo-code, where 'time' and 'reading_1' are variables
                 that live at a higher scope, presumably at main/GUI scope level.
@@ -493,9 +496,6 @@ class Dev_Base_pyqt(QtCore.QObject):
         needed, use the QtCore.pyqtSignal() mechanism to instigate GUI changes.
 
         Args:
-            dev:
-                Reference to a 'device' instance with I/O methods.
-
             alt_process_jobs_function (optional, default=None):
                 Reference to an user-supplied function performing an alternative
                 job handling when processing the worker_send queue. The default
