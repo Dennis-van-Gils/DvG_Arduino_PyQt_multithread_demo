@@ -11,7 +11,7 @@ __version__     = "1.0.0"
 
 from PyQt5 import QtCore
 import DvG_dev_Arduino__fun_serial as Arduino_functions
-import DvG_dev_Base__PyQt_lib      as Dev_Base_pyqt_lib
+import DvG_dev_Base__pyqt_lib      as Dev_Base_pyqt_lib
 
 # Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
 DEBUG_worker_DAQ  = False
@@ -36,7 +36,7 @@ class Arduino_pyqt(Dev_Base_pyqt_lib.Dev_Base_pyqt, QtCore.QObject):
             can be put onto, and sends the queued operations first in first out
             (FIFO) to the device.
 
-    (*): See 'DvG_dev_Base__PyQt_lib.py' for details.
+    (*): See 'DvG_dev_Base__pyqt_lib.py' for details.
 
     Args:
         dev:

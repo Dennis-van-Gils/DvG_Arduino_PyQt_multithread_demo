@@ -21,13 +21,13 @@ from PyQt5 import QtWidgets as QtWid
 from PyQt5.QtCore import QDateTime
 import pyqtgraph as pg
 
-from DvG_PyQt_FileLogger   import FileLogger
-from DvG_PyQt_ChartHistory import ChartHistory
-from DvG_PyQt_controls     import create_Toggle_button
+from DvG_pyqt_FileLogger   import FileLogger
+from DvG_pyqt_ChartHistory import ChartHistory
+from DvG_pyqt_controls     import create_Toggle_button
 from DvG_debug_functions   import dprint, print_fancy_traceback as pft
 
 import DvG_dev_Arduino__fun_serial as Arduino_functions
-import DvG_dev_Arduino__PyQt_lib   as Arduino_pyqt_lib
+import DvG_dev_Arduino__pyqt_lib   as Arduino_pyqt_lib
 
 # Constants
 UPDATE_INTERVAL_ARDUINO = 10  # 10 [ms]
