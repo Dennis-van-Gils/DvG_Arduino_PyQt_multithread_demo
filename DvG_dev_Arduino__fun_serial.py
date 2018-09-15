@@ -24,7 +24,7 @@ See [DvG_SerialCommand](https://github.com/Dennis-van-Gils/DvG_SerialCommand).
 Classes:
     Arduino(...):
         Manages serial communication with an Arduino(-like) device.
-    
+
         Methods:
             close():
                 Close the serial connection.
@@ -41,15 +41,15 @@ Classes:
             query_ascii_values(...)
                 Write a string to the serial port and return the reply, parsed
                 into a list of floats.
-        
+
         Important member:
             ser: serial.Serial instance belonging to the Arduino
 """
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__         = "https://github.com/Dennis-van-Gils/DvG_dev_Arduino"
-__date__        = "23-08-2018"
-__version__     = "1.0.0"
+__date__        = "15-09-2018"
+__version__     = "1.0.1"
 
 import sys
 import serial
@@ -65,10 +65,10 @@ class Arduino():
         # Reference to the serial.Serial device instance when a connection has
         # been established
         self.ser = None
-        
+
         # Given name for display and debugging purposes
         self.name = name
-        
+
         # Response of self.query('id?') received from the Arduino.
         # Note that the Arduino should be programmed to respond to such a
         # query if you want the following functionality:
@@ -79,7 +79,7 @@ class Arduino():
         # or
         #   self.auto_connect(path_config, match_identity='your identity here')
         self.identity = None
-        
+
         # Serial communication settings
         self.baudrate = baudrate
         self.read_timeout  = read_timeout
@@ -89,7 +89,7 @@ class Arduino():
 
         # Is the connection to the device alive?
         self.is_alive = False
-        
+
         # Placeholder for keeping track of future automated data acquisition as
         # used by e.g. DvG_dev_Arduino__pyqt_lib.py
         self.update_counter = 0
@@ -111,10 +111,10 @@ class Arduino():
         except: pass
         try: self.ser.cancel_write()
         except: pass
-    
+
         try: self.ser.close()
         except: pass
-        
+
         self.is_alive = False
 
     # --------------------------------------------------------------------------
@@ -124,7 +124,7 @@ class Arduino():
     def connect_at_port(self, port_str, match_identity=None,
                         print_trying_message=True):
         """Open the port at address 'port_str' and try to establish a
-        connection. Subsequently, an identity query is send to the device. 
+        connection. Subsequently, an identity query is send to the device.
         Optionally, if a 'match_identity' string is passed, only connections to
         devices with a matching identity response are accepted.
 
@@ -233,7 +233,7 @@ class Arduino():
                 continue
 
         # Scanned over all the ports without finding a match
-        print("\n  ERROR: Device not found")
+        print("\n  ERROR: Device not found\n")
         return False
 
     # --------------------------------------------------------------------------
@@ -303,7 +303,7 @@ class Arduino():
                 sys.exit(1)
             else:
                 success = True
-        
+
         return success
 
     # --------------------------------------------------------------------------
@@ -370,7 +370,7 @@ class Arduino():
         Expects a reply from the Arduino in the form of an ASCII string
         containing a list of numeric values. These values will be parsed into a
         list of floats and returned.
-        
+
         Returns:
             success (bool):
                 True if successful, False otherwise.
@@ -379,7 +379,7 @@ class Arduino():
                 [None] if unsuccessful.
         """
         [success, ans_str] = self.query(msg_str)
-        
+
         if success and not(ans_str == ''):
             try:
                 ans_floats = list(map(float, ans_str.split(separator)))
@@ -391,9 +391,9 @@ class Arduino():
                 sys.exit(1)
             else:
                 return [True, ans_floats]
-            
+
         return [False, []]
-    
+
 # ------------------------------------------------------------------------------
 #   read_port_config_file
 # ------------------------------------------------------------------------------
@@ -434,7 +434,7 @@ def write_port_config_file(filepath, port_str):
             Path to the config file, e.g. Path("config/port.txt")
         port_str (string):
             Serial port string to save to file.
-            
+
     Returns: True when successful, False otherwise.
     """
     if isinstance(filepath, Path):
@@ -461,16 +461,16 @@ def write_port_config_file(filepath, port_str):
 
 if __name__ == '__main__':
     ard = Arduino(name="Ard", baudrate=9600)
-    
+
     ard.auto_connect(path_config=Path("last_used_port.txt"),
                      match_identity="My Arduino")
     #ard.scan_ports(match_identity="My Arduino")
     #ard.scan_ports()
-    
+
     if not(ard.is_alive):
         sys.exit(1)
-    
+
     print(ard.query("?"))
     print(ard.query_ascii_values("?", '\t'))
-    
+
     ard.close()
