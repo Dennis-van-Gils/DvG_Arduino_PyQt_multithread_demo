@@ -7,14 +7,11 @@ This demo needs just a bare Arduino(-like) device that, for demonstration purpos
 
 It features a PyQt5 graphical user-interface, with a PyQtGraph plot for fast real-time plotting of data. The main thread handles the GUI and redrawing of the plot, another thread deals with acquiring data from the Arduino at a fixed rate and a third thread maintains a thread-safe queue where messages to be sent out to the Arduino are managed.
 
-For convenience all dependendies on my libraries are already embedded in this package. If you want you can find the separate repositories here:
+Other depencies you'll need for this demo can be installed by running:
+`pip install -r requirements.txt`
 
-* [DvG_dev_Arduino](https://github.com/Dennis-van-Gils/DvG_dev_Arduino)
-* [DvG_debug_functions](https://github.com/Dennis-van-Gils/DvG_debug_functions)
-* [DvG_pyqt_misc](https://github.com/Dennis-van-Gils/DvG_pyqt_misc)
-
-Third-party depencies you'll need for this demo:
-
+* [DvG_debug_functions](https://pypi.org/project/dvg-debug-functions/)
+* [DvG_QDeviceIO](https://pypi.org/project/dvg-qdeviceio/)
 * [psutil](https://pypi.org/project/psutil/)
 * [pySerial](https://pypi.org/project/pyserial/)
 * [NumPy](http://www.numpy.org/)
