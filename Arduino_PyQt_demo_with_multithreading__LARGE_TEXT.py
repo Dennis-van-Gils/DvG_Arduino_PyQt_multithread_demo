@@ -6,8 +6,8 @@ data using PyQt5 and PyQtGraph.
 __author__      = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__         = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__        = "14-09-2018"
-__version__     = "1.0.0"
+__date__        = "07-06-2020"
+__version__     = "2.0.0"
 
 import os
 import sys
@@ -27,7 +27,7 @@ from DvG_pyqt_controls     import create_Toggle_button
 from DvG_debug_functions   import dprint, print_fancy_traceback as pft
 
 import DvG_dev_Arduino__fun_serial as Arduino_functions
-import DvG_dev_Arduino__pyqt_lib   as Arduino_pyqt_lib
+import DvG_QDeviceIO
 
 # Constants
 UPDATE_INTERVAL_ARDUINO = 10  # 10 [ms]
@@ -265,15 +265,15 @@ class MainWindow(QtWid.QWidget):
 
     @QtCore.pyqtSlot()
     def process_qpbt_wave_sine(self):
-        ard_pyqt.queued_write("sine")
+        qdev_ard.send(ard.write, "sine")
 
     @QtCore.pyqtSlot()
     def process_qpbt_wave_square(self):
-        ard_pyqt.queued_write("square")
+        qdev_ard.send(ard.write, "square")
 
     @QtCore.pyqtSlot()
     def process_qpbt_wave_sawtooth(self):
-        ard_pyqt.queued_write("sawtooth")
+        qdev_ard.send(ard.write, "sawtooth")
 
     @QtCore.pyqtSlot(str)
     def set_text_qpbt_record(self, text_str):
@@ -285,8 +285,8 @@ class MainWindow(QtWid.QWidget):
 @QtCore.pyqtSlot()
 def update_GUI():
     window.qlbl_cur_date_time.setText("%s    %s" % (str_cur_date, str_cur_time))
-    window.qlbl_update_counter.setText("%i" % ard_pyqt.DAQ_update_counter)
-    window.qlbl_DAQ_rate.setText("DAQ: %.1f Hz" % ard_pyqt.obtained_DAQ_rate_Hz)
+    window.qlbl_update_counter.setText("%i" % qdev_ard.DAQ_update_counter)
+    window.qlbl_DAQ_rate.setText("DAQ: %.1f Hz" % qdev_ard.obtained_DAQ_rate_Hz)
     window.qlin_reading_t.setText("%i" % state.time)
     window.qlin_reading_1.setText("%.4f" % state.reading_1)
 
@@ -310,7 +310,7 @@ def update_chart():
 
 def stop_running():
     app.processEvents()
-    ard_pyqt.close_all_threads()
+    qdev_ard.quit()
     file_logger.close_log()
 
     print("Stopping timers: ", end='')
@@ -442,21 +442,31 @@ if __name__ == '__main__':
     file_logger.signal_set_recording_text.connect(window.set_text_qpbt_record)
 
     # --------------------------------------------------------------------------
-    #   Set up communication threads for the Arduino(s)
+    #   Set up communication threads for the Arduino
     # --------------------------------------------------------------------------
 
-    # Create workers and threads
-    ard_pyqt = Arduino_pyqt_lib.Arduino_pyqt(ard,
-                                             UPDATE_INTERVAL_ARDUINO,
-                                             my_Arduino_DAQ_update)
-
+    # Create QDeviceIO
+    qdev_ard = DvG_QDeviceIO.QDeviceIO()
+    qdev_ard.attach_device(ard)
+    
+    # Create workers
+    qdev_ard.create_worker_DAQ(
+        DAQ_function_to_run_each_update=my_Arduino_DAQ_update,
+        DAQ_update_interval_ms=UPDATE_INTERVAL_ARDUINO,
+        DAQ_timer_type=QtCore.Qt.PreciseTimer,
+        DAQ_critical_not_alive_count=3,
+        DEBUG=True)
+    
+    qdev_ard.create_worker_send(
+        DEBUG=True)
+    
     # Connect signals to slots
-    ard_pyqt.signal_DAQ_updated.connect(update_GUI)
-    ard_pyqt.signal_connection_lost.connect(notify_connection_lost)
+    qdev_ard.signal_DAQ_updated.connect(update_GUI)
+    qdev_ard.signal_connection_lost.connect(notify_connection_lost)
 
-    # Start threads
-    ard_pyqt.start_thread_worker_DAQ(QtCore.QThread.TimeCriticalPriority)
-    ard_pyqt.start_thread_worker_send()
+    # Start workers
+    qdev_ard.start(
+        DAQ_priority=QtCore.QThread.TimeCriticalPriority)
 
     # --------------------------------------------------------------------------
     #   Create timers
