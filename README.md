@@ -10,12 +10,13 @@ It features a PyQt5 graphical user-interface, with a PyQtGraph plot for fast rea
 Other depencies you'll need for this demo can be installed by running:
 `pip install -r requirements.txt`
 
-* [DvG_debug_functions](https://pypi.org/project/dvg-debug-functions/)
-* [DvG_QDeviceIO](https://pypi.org/project/dvg-qdeviceio/)
+* [dvg-debug-functions](https://pypi.org/project/dvg-debug-functions/)
+* [dvg-qdeviceio](https://pypi.org/project/dvg-qdeviceio/)
 * [psutil](https://pypi.org/project/psutil/)
 * [pySerial](https://pypi.org/project/pyserial/)
 * [NumPy](http://www.numpy.org/)
 * [PyQt5](https://pypi.org/project/PyQt5/)
 * [PyQtGraph](http://pyqtgraph.org/)
 
+<br/><br/>
 ![Arduino_PyQt_demo_with_multithreading.png](/images/Arduino_PyQt_demo_with_multithreading.PNG)
