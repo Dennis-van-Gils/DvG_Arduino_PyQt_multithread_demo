@@ -200,7 +200,7 @@ if __name__ == '__main__':
         DAQ_update_interval_ms=UPDATE_INTERVAL_ARDUINO,
         DAQ_timer_type=QtCore.Qt.PreciseTimer,
         DAQ_critical_not_alive_count=3,
-        DEBUG=True)
+        DEBUG=DEBUG)
 
     # Start workers
     qdev_ard.start(

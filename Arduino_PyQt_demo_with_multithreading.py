@@ -426,10 +426,10 @@ if __name__ == '__main__':
         DAQ_update_interval_ms=UPDATE_INTERVAL_ARDUINO,
         DAQ_timer_type=QtCore.Qt.PreciseTimer,
         DAQ_critical_not_alive_count=3,
-        DEBUG=True)
+        DEBUG=DEBUG)
     
     qdev_ard.create_worker_send(
-        DEBUG=True)
+        DEBUG=DEBUG)
     
     # Connect signals to slots
     qdev_ard.signal_DAQ_updated.connect(update_GUI)
