@@ -1,6 +1,7 @@
 psutil>=5.6.7
 pyserial>=3.4.0
 numpy>=1.15.0
+pyqt5>=5.9.2
 pyqtgraph>=0.10.0
-dvg-debug-functions>=1.1.1
-dvg-qdeviceio>=0.0.6
+dvg-debug-functions>=1.1.2
+dvg-qdeviceio>=0.0.7
