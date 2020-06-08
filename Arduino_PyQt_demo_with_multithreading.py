@@ -31,9 +31,9 @@ import DvG_QDeviceIO
 
 # Constants
 # fmt: off
-UPDATE_INTERVAL_ARDUINO = 10  # 10 [ms]
-UPDATE_INTERVAL_CHART   = 10  # 10 [ms]
-CHART_HISTORY_TIME      = 10  # 10 [s]
+DAQ_INTERVAL_ARDUINO = 10  # 10 [ms]
+DRAW_INTERVAL_CHART  = 10  # 10 [ms]
+CHART_HISTORY_TIME   = 10  # 10 [s]
 
 # Global variables for date-time keeping
 cur_date_time = QDateTime.currentDateTime()
@@ -150,7 +150,7 @@ class MainWindow(QtWid.QWidget):
 
         # Create ChartHistory and PlotDataItem and link them together
         PEN_01 = pg.mkPen(color=[0, 200, 0], width=3)
-        num_samples = round(CHART_HISTORY_TIME * 1e3 / UPDATE_INTERVAL_ARDUINO)
+        num_samples = round(CHART_HISTORY_TIME * 1e3 / DAQ_INTERVAL_ARDUINO)
         self.CH_1 = ChartHistory(num_samples, self.pi_chart.plot(pen=PEN_01))
         self.CH_1.x_axis_divisor = 1000  # From [ms] to [s]
 
@@ -274,7 +274,7 @@ class MainWindow(QtWid.QWidget):
 @QtCore.pyqtSlot()
 def update_GUI():
     window.qlbl_cur_date_time.setText("%s    %s" % (str_cur_date, str_cur_time))
-    window.qlbl_update_counter.setText("%i" % qdev_ard.DAQ_update_counter)
+    window.qlbl_update_counter.setText("%i" % qdev_ard.update_counter_DAQ)
     window.qlbl_DAQ_rate.setText("DAQ: %.1f Hz" % qdev_ard.obtained_DAQ_rate_Hz)
     window.qlin_reading_t.setText("%i" % state.time)
     window.qlin_reading_1.setText("%.4f" % state.reading_1)
@@ -349,7 +349,7 @@ def about_to_quit():
 # ------------------------------------------------------------------------------
 
 
-def my_Arduino_DAQ_update():
+def DAQ_function():
     # Date-time keeping
     global cur_date_time, str_cur_date, str_cur_time
     cur_date_time = QDateTime.currentDateTime()
@@ -466,11 +466,11 @@ if __name__ == "__main__":
     # Create workers
     # fmt: off
     qdev_ard.create_worker_DAQ(
-        DAQ_function_to_run_each_update = my_Arduino_DAQ_update,
-        DAQ_update_interval_ms          = UPDATE_INTERVAL_ARDUINO,
-        DAQ_timer_type                  = QtCore.Qt.PreciseTimer,
-        DAQ_critical_not_alive_count    = 3,
-        DEBUG                           = DEBUG,)
+        DAQ_function             = DAQ_function,
+        DAQ_interval_ms          = DAQ_INTERVAL_ARDUINO,
+        DAQ_timer_type           = QtCore.Qt.PreciseTimer,
+        critical_not_alive_count = 3,
+        DEBUG                    = DEBUG,)
     # fmt: on
 
     qdev_ard.create_worker_send(DEBUG=DEBUG)
@@ -488,7 +488,7 @@ if __name__ == "__main__":
 
     timer_chart = QtCore.QTimer()
     timer_chart.timeout.connect(update_chart)
-    timer_chart.start(UPDATE_INTERVAL_CHART)
+    timer_chart.start(DRAW_INTERVAL_CHART)
 
     # --------------------------------------------------------------------------
     #   Start the main GUI event loop
