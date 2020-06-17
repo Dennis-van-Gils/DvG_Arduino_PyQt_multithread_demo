@@ -90,14 +90,6 @@ class Arduino():
         # Is the connection to the device alive?
         self.is_alive = False
 
-        # Placeholder for keeping track of future automated data acquisition as
-        # used by e.g. DvG_dev_Arduino__pyqt_lib.py
-        self.update_counter = 0
-
-        # Placeholder for a future mutex instance needed for proper
-        # multithreading (e.g. instance of QtCore.Qmutex())
-        self.mutex = None
-
     # --------------------------------------------------------------------------
     #   close
     # --------------------------------------------------------------------------
