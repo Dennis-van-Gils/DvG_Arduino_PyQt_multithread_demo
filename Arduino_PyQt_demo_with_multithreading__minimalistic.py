@@ -6,8 +6,8 @@ data using PyQt5 and PyQtGraph.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "08-06-2020"
-__version__ = "2.0.1"
+__date__ = "23-06-2020"
+__version__ = "2.0.2"
 
 import os
 import sys
@@ -217,11 +217,11 @@ if __name__ == "__main__":
     # Create workers
     # fmt: off
     qdev_ard.create_worker_DAQ(
-        DAQ_function_to_run_each_update = my_Arduino_DAQ_update,
-        DAQ_update_interval_ms          = UPDATE_INTERVAL_ARDUINO,
-        DAQ_timer_type                  = QtCore.Qt.PreciseTimer,
-        DAQ_critical_not_alive_count    = 3,
-        DEBUG                           = DEBUG)
+        DAQ_function             = my_Arduino_DAQ_update,
+        DAQ_interval_ms          = UPDATE_INTERVAL_ARDUINO,
+        DAQ_timer_type           = QtCore.Qt.PreciseTimer,
+        critical_not_alive_count = 3,
+        DEBUG                    = DEBUG)
     # fmt: on
 
     # Start workers

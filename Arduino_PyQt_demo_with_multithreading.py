@@ -6,8 +6,8 @@ data using PyQt5 and PyQtGraph.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "08-06-2020"
-__version__ = "2.0.1"
+__date__ = "23-06-2020"
+__version__ = "2.0.2"
 
 import os
 import sys
@@ -473,7 +473,7 @@ if __name__ == "__main__":
         DEBUG                    = DEBUG,)
     # fmt: on
 
-    qdev_ard.create_worker_send(DEBUG=DEBUG)
+    qdev_ard.create_worker_jobs(DEBUG=DEBUG)
 
     # Connect signals to slots
     qdev_ard.signal_DAQ_updated.connect(update_GUI)
