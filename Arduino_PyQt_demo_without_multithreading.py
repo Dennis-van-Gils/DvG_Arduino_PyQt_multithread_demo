@@ -5,13 +5,13 @@ data using PyQt5 and PyQtGraph.
 
 NOTE: This demonstrates the bad case of what happens when both the acquisition
 and the plotting happen on the same thread. You should observe a drop in the
-acquisition rate (DAQ rate) when you e.g. rapidly resize the window.
+acquisition rate (DAQ rate) when you, e.g., rapidly resize the window.
 """
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "08-06-2020"
-__version__ = "2.0.1"
+__date__ = "23-06-2020"
+__version__ = "2.1"
 
 import os
 import sys

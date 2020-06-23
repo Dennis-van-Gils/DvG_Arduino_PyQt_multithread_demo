@@ -7,7 +7,7 @@ __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
 __date__ = "23-06-2020"
-__version__ = "2.0.2"
+__version__ = "2.1"
 
 import os
 import sys
