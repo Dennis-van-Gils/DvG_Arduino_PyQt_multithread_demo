@@ -211,8 +211,7 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
 
     # Create QDeviceIO
-    qdev_ard = DvG_QDeviceIO.QDeviceIO()
-    qdev_ard.attach_device(ard)
+    qdev_ard = DvG_QDeviceIO.QDeviceIO(ard)
 
     # Create workers
     # fmt: off
