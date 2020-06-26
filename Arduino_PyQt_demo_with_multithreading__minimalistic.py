@@ -218,7 +218,6 @@ if __name__ == "__main__":
     qdev_ard.create_worker_DAQ(
         DAQ_function             = my_Arduino_DAQ_update,
         DAQ_interval_ms          = UPDATE_INTERVAL_ARDUINO,
-        DAQ_timer_type           = QtCore.Qt.PreciseTimer,
         critical_not_alive_count = 3,
         debug                    = DEBUG)
     # fmt: on
