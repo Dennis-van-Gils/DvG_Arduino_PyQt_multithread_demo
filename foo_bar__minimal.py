@@ -13,8 +13,8 @@ __version__ = "2.1"
 import sys
 from pathlib import Path
 
-import numpy as np
 import time
+import signal  # To catch CTRL+C and quit
 
 from PyQt5 import QtCore, QtWidgets as QtWid
 from DvG_debug_functions import dprint, print_fancy_traceback as pft
@@ -29,6 +29,7 @@ TIMESTAMP_PC = True
 # Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
 DEBUG = False
 
+
 # ------------------------------------------------------------------------------
 #   Device state
 # ------------------------------------------------------------------------------
@@ -40,38 +41,20 @@ class State(object):
     """
 
     def __init__(self):
-        self.time = np.nan  # [s]
-        self.reading_1 = np.nan
+        self.time = None  # [s]
+        self.reading_1 = None
 
 
 state = State()
 
 
 # ------------------------------------------------------------------------------
-#   MainWindow
-# ------------------------------------------------------------------------------
-
-
-class MainWindow(QtWid.QWidget):
-    def __init__(self, parent=None, **kwargs):
-        super().__init__(parent, **kwargs)
-
-        self.setGeometry(300, 300, 300, 100)
-        self.setWindowTitle("Multithread PyQt & Arduino demo")
-
-        self.lbl = QtWid.QLabel("Press `Esc` to quit.")
-        vbox = QtWid.QVBoxLayout(self)
-        vbox.addWidget(self.lbl)
-
-    def keyPressEvent(self, event):
-        if event.key() == QtCore.Qt.Key_Escape:
-            app.quit()
-        event.accept()
-
-
-# ------------------------------------------------------------------------------
 #   Program termination routines
 # ------------------------------------------------------------------------------
+
+
+def keyboardInterruptHandler(signal, frame):
+    app.quit()
 
 
 @QtCore.pyqtSlot()
@@ -132,9 +115,9 @@ def DAQ_function():
         else:
             state.time = time.perf_counter() - state.time_0
 
-    # # For demo purposes: Quit automatically after 200 updates
-    # if qdev.update_counter_DAQ > 200:
-    #     app.quit()
+    # For demo purposes: Quit automatically after N updates
+    if qdev.update_counter_DAQ > 1000:
+        app.quit()
 
     return True
 
@@ -157,11 +140,8 @@ if __name__ == "__main__":
         sys.exit(0)
 
     # Create application
-    # app = QtCore.QCoreApplication(sys.argv)
-    app = QtWid.QApplication(sys.argv)
+    app = QtCore.QCoreApplication(sys.argv)
     app.aboutToQuit.connect(about_to_quit)
-
-    window = MainWindow()
 
     # Set up multithreaded communication with the Arduino
     qdev = QDeviceIO(ard)
@@ -183,6 +163,7 @@ if __name__ == "__main__":
     #   Start the main event loop
     # --------------------------------------------------------------------------
 
-    # app.exec()
-    window.show()
+    # Catch CTRL+C
+    signal.signal(signal.SIGINT, keyboardInterruptHandler)
+
     sys.exit(app.exec_())
