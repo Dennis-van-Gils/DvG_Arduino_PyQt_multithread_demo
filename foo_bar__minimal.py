@@ -7,18 +7,16 @@
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "26-06-2020"
+__date__ = "28-06-2020"
 __version__ = "2.1"
 
-import os
 import sys
 from pathlib import Path
 
 import numpy as np
-import psutil
 import time
 
-from PyQt5 import QtCore
+from PyQt5 import QtCore, QtWidgets as QtWid
 from DvG_debug_functions import dprint, print_fancy_traceback as pft
 
 from DvG_dev_Arduino__fun_serial import Arduino  # I.e. the `device`
@@ -26,6 +24,7 @@ from DvG_QDeviceIO import QDeviceIO, DAQ_trigger
 
 # Constants
 DAQ_INTERVAL = 10  # 10 [ms]
+TIMESTAMP_PC = True
 
 # Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
 DEBUG = False
@@ -41,11 +40,33 @@ class State(object):
     """
 
     def __init__(self):
-        self.time = np.nan  # [ms]
+        self.time = np.nan  # [s]
         self.reading_1 = np.nan
 
 
 state = State()
+
+
+# ------------------------------------------------------------------------------
+#   MainWindow
+# ------------------------------------------------------------------------------
+
+
+class MainWindow(QtWid.QWidget):
+    def __init__(self, parent=None, **kwargs):
+        super().__init__(parent, **kwargs)
+
+        self.setGeometry(300, 300, 300, 100)
+        self.setWindowTitle("Multithread PyQt & Arduino demo")
+
+        self.lbl = QtWid.QLabel("Press `Esc` to quit.")
+        vbox = QtWid.QVBoxLayout(self)
+        vbox.addWidget(self.lbl)
+
+    def keyPressEvent(self, event):
+        if event.key() == QtCore.Qt.Key_Escape:
+            app.quit()
+        event.accept()
 
 
 # ------------------------------------------------------------------------------
@@ -56,31 +77,28 @@ state = State()
 @QtCore.pyqtSlot()
 def notify_connection_lost():
     print("\nCRITICAL ERROR: Connection lost")
-    exit_program()
-
-
-@QtCore.pyqtSlot()
-def exit_program():
-    print("\nAbout to quit")
-
-    app.processEvents()
-
-    qdev.quit()
-    ard.close()
-
     app.quit()
 
 
+@QtCore.pyqtSlot()
+def about_to_quit():
+    print("\nAbout to quit")
+    qdev.quit()
+    ard.close()
+
+
 # ------------------------------------------------------------------------------
-#   update_CLI
+#   update_terminal
 # ------------------------------------------------------------------------------
 
 
 @QtCore.pyqtSlot()
-def update_CLI():
+def update_terminal():
     print(
         "%i\t%.3f\t%.4f"
-        % (qdev.update_counter_DAQ, state.time, state.reading_1)
+        % (qdev.update_counter_DAQ - 1, state.time, state.reading_1),
+        # end="\r",
+        # flush=True,
     )
 
 
@@ -99,6 +117,7 @@ def DAQ_function():
     # Parse readings into separate state variables
     try:
         [state.time, state.reading_1] = tmp_state
+        state.time /= 1000
     except Exception as err:
         pft(err, 3)
         dprint("'%s' reports IOError" % ard.name)
@@ -106,9 +125,16 @@ def DAQ_function():
 
     # Use Arduino time or PC time?
     # Arduino time is more accurate, but rolls over ~49 days for a 32 bit timer.
-    use_PC_time = True
-    if use_PC_time:
-        state.time = time.perf_counter()
+    if True:
+        if qdev.update_counter_DAQ == 1:
+            state.time_0 = time.perf_counter()
+            state.time = 0
+        else:
+            state.time = time.perf_counter() - state.time_0
+
+    # # For demo purposes: Quit automatically after 200 updates
+    # if qdev.update_counter_DAQ > 200:
+    #     app.quit()
 
     return True
 
@@ -131,31 +157,32 @@ if __name__ == "__main__":
         sys.exit(0)
 
     # Create application
-    app = QtCore.QCoreApplication(sys.argv)
-    app.aboutToQuit.connect(exit_program)
+    # app = QtCore.QCoreApplication(sys.argv)
+    app = QtWid.QApplication(sys.argv)
+    app.aboutToQuit.connect(about_to_quit)
+
+    window = MainWindow()
 
     # Set up multithreaded communication with the Arduino
     qdev = QDeviceIO(ard)
     qdev.create_worker_DAQ(
-        DAQ_trigger     = DAQ_trigger.INTERNAL_TIMER,
-        DAQ_function    = DAQ_function,
-        DAQ_interval_ms = DAQ_INTERVAL,
-        debug           = DEBUG,)
+        DAQ_trigger=DAQ_trigger.INTERNAL_TIMER,
+        DAQ_function=DAQ_function,
+        DAQ_interval_ms=DAQ_INTERVAL,
+        debug=DEBUG,
+    )
 
     # Connect signals to slots
-    qdev.signal_DAQ_updated.connect(update_CLI)
+    qdev.signal_DAQ_updated.connect(update_terminal)
     qdev.signal_connection_lost.connect(notify_connection_lost)
 
     # Start workers
     qdev.start()
 
     # --------------------------------------------------------------------------
-    #   Start the main loop
+    #   Start the main event loop
     # --------------------------------------------------------------------------
 
-    while True:
-        app.processEvents()
-
-        if qdev.update_counter_DAQ >= 20:
-            exit_program()
-            break
+    # app.exec()
+    window.show()
+    sys.exit(app.exec_())
