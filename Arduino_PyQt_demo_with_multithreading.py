@@ -6,7 +6,7 @@ data using PyQt5 and PyQtGraph.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "24-06-2020"
+__date__ = "01-07-2020"
 __version__ = "2.1"
 
 import os
@@ -26,8 +26,11 @@ from DvG_pyqt_ChartHistory import ChartHistory
 from DvG_pyqt_controls import create_Toggle_button, SS_GROUP
 from DvG_debug_functions import dprint, print_fancy_traceback as pft
 
-import DvG_dev_Arduino__fun_serial as Arduino_functions
-import DvG_QDeviceIO
+#import DvG_dev_Arduino__fun_serial as Arduino_functions
+from DvG_dev_Arduino__protocol_serial import Arduino  # I.e. the `device
+from DvG_dev_Arduino__qdev import Arduino_qdev
+from DvG_QDeviceIO import QDeviceIO
+
 
 # Constants
 # fmt: off
@@ -427,7 +430,7 @@ if __name__ == "__main__":
     #   Connect to Arduino
     # --------------------------------------------------------------------------
 
-    ard = Arduino_functions.Arduino(name="Ard", baudrate=115200)
+    ard = Arduino(name="Ard", baudrate=115200)
     ard.auto_connect(
         Path("last_used_port.txt"), match_identity="Wave generator"
     )
@@ -459,8 +462,21 @@ if __name__ == "__main__":
     #   Set up multithreaded communication with the Arduino
     # --------------------------------------------------------------------------
 
+    """
+    # fmt: off    
+    qdev_ard = Arduino_qdev(
+        dev                      = ard,
+        DAQ_function             = DAQ_function,
+        DAQ_interval_ms          = DAQ_INTERVAL_ARDUINO,
+        critical_not_alive_count = 3,
+        calc_DAQ_rate_every_N_iter=100,
+        debug                    = DEBUG,
+    )
+    """
+    # fmt: on
+    
     # Create QDeviceIO
-    qdev_ard = DvG_QDeviceIO.QDeviceIO(ard)
+    qdev_ard = QDeviceIO(ard)
 
     # Create workers
     # fmt: off
@@ -468,7 +484,8 @@ if __name__ == "__main__":
         DAQ_function             = DAQ_function,
         DAQ_interval_ms          = DAQ_INTERVAL_ARDUINO,
         critical_not_alive_count = 3,
-        debug                    = DEBUG,)
+        debug                    = DEBUG,
+    )
     # fmt: on
 
     qdev_ard.create_worker_jobs(debug=DEBUG)

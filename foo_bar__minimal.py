@@ -7,7 +7,7 @@
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "28-06-2020"
+__date__ = "01-07-2020"
 __version__ = "2.1"
 
 import sys
@@ -16,10 +16,10 @@ from pathlib import Path
 import time
 import signal  # To catch CTRL+C and quit
 
-from PyQt5 import QtCore, QtWidgets as QtWid
+from PyQt5 import QtCore
 from DvG_debug_functions import dprint, print_fancy_traceback as pft
 
-from DvG_dev_Arduino__fun_serial import Arduino  # I.e. the `device`
+from DvG_dev_Arduino__protocol_serial import Arduino  # I.e. the `device`
 from DvG_QDeviceIO import QDeviceIO, DAQ_trigger
 
 # Constants
