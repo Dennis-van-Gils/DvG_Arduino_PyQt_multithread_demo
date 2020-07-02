@@ -441,7 +441,7 @@ if __name__ == "__main__":
     if not (ard.is_alive):
         print("\nCheck connection and try resetting the Arduino.")
         print("Exiting...\n")
-        sys.exit(1)
+        sys.exit(0)
 
     # --------------------------------------------------------------------------
     #   Create application and main window
