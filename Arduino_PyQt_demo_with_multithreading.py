@@ -6,12 +6,13 @@ data using PyQt5 and PyQtGraph.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "01-07-2020"
-__version__ = "2.1"
+__date__ = "02-07-2020"
+__version__ = "3.0"
 
 import os
 import sys
 from pathlib import Path
+import time
 
 import numpy as np
 import psutil
@@ -24,19 +25,19 @@ import pyqtgraph as pg
 from DvG_pyqt_FileLogger import FileLogger
 from DvG_pyqt_ChartHistory import ChartHistory
 from DvG_pyqt_controls import create_Toggle_button, SS_GROUP
-from DvG_debug_functions import dprint, print_fancy_traceback as pft
+from dvg_debug_functions import dprint, print_fancy_traceback as pft
 
-#import DvG_dev_Arduino__fun_serial as Arduino_functions
-from DvG_dev_Arduino__protocol_serial import Arduino  # I.e. the `device
-from DvG_dev_Arduino__qdev import Arduino_qdev
-from DvG_QDeviceIO import QDeviceIO
+from dvg_devices.Arduino_protocol_serial import Arduino  # I.e. the `device`
+
+# from dvg_devices.Arduino_qdev import Arduino_qdev  # Alternative approach as a mixed-in QDeviceIO class
+from dvg_qdeviceio import QDeviceIO
 
 
 # Constants
 # fmt: off
-DAQ_INTERVAL_ARDUINO = 10  # 10 [ms]
-DRAW_INTERVAL_CHART  = 10  # 10 [ms]
-CHART_HISTORY_TIME   = 10  # 10 [s]
+DAQ_INTERVAL_MS     = 10  # 10 [ms]
+DRAW_INTERVAL_CHART = 10  # 10 [ms]
+CHART_HISTORY_TIME  = 10  # 10 [s]
 
 # Global variables for date-time keeping
 cur_date_time = QDateTime.currentDateTime()
@@ -54,11 +55,11 @@ DEBUG = False
 
 class State(object):
     """Reflects the actual readings, parsed into separate variables, of the
-    Arduino(s). There should only be one instance of the State class.
+    Arduino. There should only be one instance of the State class.
     """
 
     def __init__(self):
-        self.time = np.nan  # [ms]
+        self.time = None  # [s]
         self.reading_1 = np.nan
 
         # Mutex for proper multithreading. If the state variables are not
@@ -153,9 +154,8 @@ class MainWindow(QtWid.QWidget):
 
         # Create ChartHistory and PlotDataItem and link them together
         PEN_01 = pg.mkPen(color=[0, 200, 0], width=3)
-        num_samples = round(CHART_HISTORY_TIME * 1e3 / DAQ_INTERVAL_ARDUINO)
+        num_samples = round(CHART_HISTORY_TIME * 1e3 / DAQ_INTERVAL_MS)
         self.CH_1 = ChartHistory(num_samples, self.pi_chart.plot(pen=PEN_01))
-        self.CH_1.x_axis_divisor = 1000  # From [ms] to [s]
 
         # 'Readings'
         p = {"readOnly": True}
@@ -279,7 +279,7 @@ def update_GUI():
     window.qlbl_cur_date_time.setText("%s    %s" % (str_cur_date, str_cur_time))
     window.qlbl_update_counter.setText("%i" % qdev_ard.update_counter_DAQ)
     window.qlbl_DAQ_rate.setText("DAQ: %.1f Hz" % qdev_ard.obtained_DAQ_rate_Hz)
-    window.qlin_reading_t.setText("%i" % state.time)
+    window.qlin_reading_t.setText("%.3f" % state.time)
     window.qlin_reading_1.setText("%.4f" % state.reading_1)
 
 
@@ -291,13 +291,16 @@ def update_GUI():
 @QtCore.pyqtSlot()
 def update_chart():
     if DEBUG:
-        tick = QDateTime.currentDateTime()
+        tick = time.perf_counter()
 
     window.CH_1.update_curve()
 
     if DEBUG:
-        tack = QDateTime.currentDateTime()
-        dprint("  update_curve done in %d ms" % tick.msecsTo(tack))
+        dprint(
+            "  update_curve done in %.2f ms"
+            % (time.perf_counter() - tick)
+            * 1000
+        )
 
 
 # ------------------------------------------------------------------------------
@@ -323,7 +326,7 @@ def notify_connection_lost():
     window.qlbl_title.setText("%sLOST CONNECTION%s" % (excl, excl))
 
     str_msg = (
-        "%s %s\n" "Lost connection to Arduino(s).\n" "  '%s', '%s': %salive"
+        "%s %s\n" "Lost connection to Arduino.\n" "  '%s', '%s': %salive"
     ) % (
         str_cur_date,
         str_cur_time,
@@ -371,6 +374,7 @@ def DAQ_function():
     # Parse readings into separate state variables
     try:
         [state.time, state.reading_1] = tmp_state
+        state.time /= 1000
     except Exception as err:
         pft(err, 3)
         dprint(
@@ -380,10 +384,9 @@ def DAQ_function():
         return False
 
     # Use Arduino time or PC time?
-    # Arduino time is more accurate, but rolls over ~49 days for a 32 bit timer.
     use_PC_time = True
     if use_PC_time:
-        state.time = cur_date_time.toMSecsSinceEpoch()
+        state.time = time.perf_counter()
 
     # Add readings to chart histories
     window.CH_1.add_new_reading(state.time, state.reading_1)
@@ -404,7 +407,7 @@ def DAQ_function():
         file_logger.close_log()
 
     if file_logger.is_recording:
-        log_elapsed_time = (state.time - file_logger.start_time) / 1e3  # [sec]
+        log_elapsed_time = state.time - file_logger.start_time
         file_logger.write("%.3f\t%.4f\n" % (log_elapsed_time, state.reading_1))
 
     return True
@@ -438,7 +441,7 @@ if __name__ == "__main__":
     if not (ard.is_alive):
         print("\nCheck connection and try resetting the Arduino.")
         print("Exiting...\n")
-        sys.exit(0)
+        sys.exit(1)
 
     # --------------------------------------------------------------------------
     #   Create application and main window
@@ -463,18 +466,20 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
 
     """
-    # fmt: off    
+    # Alternative approach as a mixed-in QDeviceIO class
+    # fmt: off
     qdev_ard = Arduino_qdev(
-        dev                      = ard,
-        DAQ_function             = DAQ_function,
-        DAQ_interval_ms          = DAQ_INTERVAL_ARDUINO,
-        critical_not_alive_count = 3,
-        calc_DAQ_rate_every_N_iter=100,
-        debug                    = DEBUG,
+        dev                        = ard,
+        DAQ_function               = DAQ_function,
+        DAQ_interval_ms            = DAQ_INTERVAL_MS,
+        critical_not_alive_count   = 3,
+        calc_DAQ_rate_every_N_iter = 100,
+        debug                      = DEBUG,
     )
-    """
     # fmt: on
-    
+    """
+
+    # """
     # Create QDeviceIO
     qdev_ard = QDeviceIO(ard)
 
@@ -482,13 +487,14 @@ if __name__ == "__main__":
     # fmt: off
     qdev_ard.create_worker_DAQ(
         DAQ_function             = DAQ_function,
-        DAQ_interval_ms          = DAQ_INTERVAL_ARDUINO,
+        DAQ_interval_ms          = DAQ_INTERVAL_MS,
         critical_not_alive_count = 3,
         debug                    = DEBUG,
     )
     # fmt: on
 
     qdev_ard.create_worker_jobs(debug=DEBUG)
+    # """
 
     # Connect signals to slots
     qdev_ard.signal_DAQ_updated.connect(update_GUI)

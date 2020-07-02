@@ -53,7 +53,7 @@ from pathlib import Path
 
 from PyQt5 import QtCore
 
-from DvG_debug_functions import print_fancy_traceback as pft
+from dvg_debug_functions import print_fancy_traceback as pft
 
 class FileLogger(QtCore.QObject):
     signal_set_recording_text = QtCore.pyqtSignal(str)

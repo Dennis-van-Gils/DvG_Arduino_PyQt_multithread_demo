@@ -12,6 +12,7 @@ Other depencies you'll need for this demo can be installed by running:
 
 * [dvg-debug-functions](https://pypi.org/project/dvg-debug-functions/)
 * [dvg-qdeviceio](https://pypi.org/project/dvg-qdeviceio/)
+* [dvg-devices](https://pypi.org/project/dvg-devices/)
 * [psutil](https://pypi.org/project/psutil/)
 * [pySerial](https://pypi.org/project/pyserial/)
 * [NumPy](http://www.numpy.org/)

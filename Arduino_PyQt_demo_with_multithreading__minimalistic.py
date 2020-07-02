@@ -6,12 +6,13 @@ data using PyQt5 and PyQtGraph.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "24-06-2020"
-__version__ = "2.1"
+__date__ = "02-07-2020"
+__version__ = "3.0"
 
 import os
 import sys
 from pathlib import Path
+import time
 
 import numpy as np
 import psutil
@@ -22,16 +23,16 @@ from PyQt5.QtCore import QDateTime
 import pyqtgraph as pg
 
 from DvG_pyqt_ChartHistory import ChartHistory
-from DvG_debug_functions import dprint, print_fancy_traceback as pft
+from dvg_debug_functions import dprint, print_fancy_traceback as pft
 
-import DvG_dev_Arduino__fun_serial as Arduino_functions
-import DvG_QDeviceIO
+from dvg_devices.Arduino_protocol_serial import Arduino
+from dvg_qdeviceio import QDeviceIO
 
 # Constants
 # fmt: off
-UPDATE_INTERVAL_ARDUINO = 10  # 10 [ms]
-UPDATE_INTERVAL_CHART   = 10  # 10 [ms]
-CHART_HISTORY_TIME      = 10  # 10 [s]
+DAQ_INTERVAL_MS     = 10  # 10 [ms]
+DRAW_INTERVAL_CHART = 10  # 10 [ms]
+CHART_HISTORY_TIME  = 10  # 10 [s]
 
 # Global variables for date-time keeping
 cur_date_time = QDateTime.currentDateTime()
@@ -49,11 +50,11 @@ DEBUG = False
 
 class State(object):
     """Reflects the actual readings, parsed into separate variables, of the
-    Arduino(s). There should only be one instance of the State class.
+    Arduino. There should only be one instance of the State class.
     """
 
     def __init__(self):
-        self.time = np.nan  # [ms]
+        self.time = None  # [s]
         self.reading_1 = np.nan
 
         # Mutex for proper multithreading. If the state variables are not
@@ -95,9 +96,8 @@ class MainWindow(QtWid.QWidget):
 
         # Create ChartHistory and PlotDataItem and link them together
         PEN_01 = pg.mkPen(color=[0, 200, 0], width=3)
-        num_samples = round(CHART_HISTORY_TIME * 1e3 / UPDATE_INTERVAL_ARDUINO)
+        num_samples = round(CHART_HISTORY_TIME * 1e3 / DAQ_INTERVAL_MS)
         self.CH_1 = ChartHistory(num_samples, self.pi_chart.plot(pen=PEN_01))
-        self.CH_1.x_axis_divisor = 1000  # From [ms] to [s]
 
         vbox = QtWid.QVBoxLayout(self)
         vbox.addWidget(self.gw_chart, 1)
@@ -126,7 +126,7 @@ def about_to_quit():
 # ------------------------------------------------------------------------------
 
 
-def my_Arduino_DAQ_update():
+def DAQ_function():
     # Date-time keeping
     global cur_date_time, str_cur_date, str_cur_time
     cur_date_time = QDateTime.currentDateTime()
@@ -145,6 +145,7 @@ def my_Arduino_DAQ_update():
     # Parse readings into separate state variables
     try:
         [state.time, state.reading_1] = tmp_state
+        state.time /= 1000
     except Exception as err:
         pft(err, 3)
         dprint(
@@ -154,10 +155,9 @@ def my_Arduino_DAQ_update():
         return False
 
     # Use Arduino time or PC time?
-    # Arduino time is more accurate, but rolls over ~49 days for a 32 bit timer.
     use_PC_time = False
     if use_PC_time:
-        state.time = cur_date_time.toMSecsSinceEpoch()
+        state.time = time.perf_counter()
 
     # Add readings to chart histories
     window.CH_1.add_new_reading(state.time, state.reading_1)
@@ -185,7 +185,7 @@ if __name__ == "__main__":
     #   Connect to Arduino
     # --------------------------------------------------------------------------
 
-    ard = Arduino_functions.Arduino(name="Ard", baudrate=115200)
+    ard = Arduino(name="Ard", baudrate=115200)
     ard.auto_connect(
         Path("last_used_port.txt"), match_identity="Wave generator"
     )
@@ -193,7 +193,7 @@ if __name__ == "__main__":
     if not (ard.is_alive):
         print("\nCheck connection and try resetting the Arduino.")
         print("Exiting...\n")
-        sys.exit(0)
+        sys.exit(1)
 
     # --------------------------------------------------------------------------
     #   Create application and main window
@@ -211,15 +211,16 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
 
     # Create QDeviceIO
-    qdev_ard = DvG_QDeviceIO.QDeviceIO(ard)
+    qdev_ard = QDeviceIO(ard)
 
     # Create workers
     # fmt: off
     qdev_ard.create_worker_DAQ(
-        DAQ_function             = my_Arduino_DAQ_update,
-        DAQ_interval_ms          = UPDATE_INTERVAL_ARDUINO,
+        DAQ_function             = DAQ_function,
+        DAQ_interval_ms          = DAQ_INTERVAL_MS,
         critical_not_alive_count = 3,
-        debug                    = DEBUG)
+        debug                    = DEBUG,
+    )
     # fmt: on
 
     # Start workers
@@ -231,7 +232,7 @@ if __name__ == "__main__":
 
     timer_chart = QtCore.QTimer()
     timer_chart.timeout.connect(lambda: window.CH_1.update_curve())
-    timer_chart.start(UPDATE_INTERVAL_CHART)
+    timer_chart.start(DRAW_INTERVAL_CHART)
 
     # --------------------------------------------------------------------------
     #   Start the main GUI event loop

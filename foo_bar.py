@@ -7,28 +7,26 @@
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "26-06-2020"
-__version__ = "2.1"
+__date__ = "02-07-2020"
+__version__ = "3.0"
 
-import os
 import sys
 from pathlib import Path
-
-import numpy as np
-import psutil
 import time
+import signal  # To catch CTRL+C and quit
 
 from PyQt5 import QtCore
-from DvG_debug_functions import dprint, print_fancy_traceback as pft
+from dvg_debug_functions import dprint, print_fancy_traceback as pft
 
-import DvG_dev_Arduino__fun_serial as Arduino_functions
-import DvG_QDeviceIO
+from dvg_devices.Arduino_protocol_serial import Arduino  # I.e. the `device`
+from dvg_qdeviceio import QDeviceIO, DAQ_trigger
 
 # Constants
-DAQ_INTERVAL_ARDUINO = 10  # 10 [ms]
+DAQ_INTERVAL_MS = 10  # 10 [ms]
 
 # Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
 DEBUG = False
+
 
 # ------------------------------------------------------------------------------
 #   Arduino state
@@ -37,12 +35,12 @@ DEBUG = False
 
 class State(object):
     """Reflects the actual readings, parsed into separate variables, of the
-    Arduino(s). There should only be one instance of the State class.
+    Arduino. There should only be one instance of the State class.
     """
 
     def __init__(self):
-        self.time = np.nan  # [ms]
-        self.reading_1 = np.nan
+        self.time = None  # [s]
+        self.reading_1 = None
 
 
 state = State()
@@ -53,34 +51,35 @@ state = State()
 # ------------------------------------------------------------------------------
 
 
-@QtCore.pyqtSlot()
-def notify_connection_lost():
-    print("\nCRITICAL ERROR: Connection lost")
-    exit_program()
-
-
-@QtCore.pyqtSlot()
-def exit_program():
-    print("\nAbout to quit")
-
-    app.processEvents()
-
-    qdev.quit()
-    ard.close()
-
+def keyboardInterruptHandler(signal, frame):
     app.quit()
 
 
+@QtCore.pyqtSlot()
+def notify_connection_lost():
+    print("\nCRITICAL ERROR: Connection lost")
+    app.quit()
+
+
+@QtCore.pyqtSlot()
+def about_to_quit():
+    print("\nAbout to quit")
+    qdev.quit()
+    ard.close()
+
+
 # ------------------------------------------------------------------------------
-#   update_CLI
+#   update_terminal
 # ------------------------------------------------------------------------------
 
 
 @QtCore.pyqtSlot()
-def update_CLI():
+def update_terminal():
     print(
         "%i\t%.3f\t%.4f"
-        % (qdev.update_counter_DAQ, state.time, state.reading_1)
+        % (qdev.update_counter_DAQ - 1, state.time, state.reading_1),
+        # end="\r",
+        # flush=True,
     )
 
 
@@ -99,16 +98,24 @@ def DAQ_function():
     # Parse readings into separate state variables
     try:
         [state.time, state.reading_1] = tmp_state
+        state.time /= 1000
     except Exception as err:
         pft(err, 3)
         dprint("'%s' reports IOError" % ard.name)
         return False
 
     # Use Arduino time or PC time?
-    # Arduino time is more accurate, but rolls over ~49 days for a 32 bit timer.
     use_PC_time = True
-    if use_PC_time:
-        state.time = time.perf_counter()
+    now = time.perf_counter() if use_PC_time else state.time
+    if qdev.update_counter_DAQ == 1:
+        state.time_0 = now
+        state.time = 0
+    else:
+        state.time = now - state.time_0
+
+    # For demo purposes: Quit automatically after N updates
+    if qdev.update_counter_DAQ > 1000:
+        app.quit()
 
     return True
 
@@ -118,22 +125,9 @@ def DAQ_function():
 # ------------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    # Set priority of this process to maximum in the operating system
-    print("PID: %s\n" % os.getpid())
-    try:
-        proc = psutil.Process(os.getpid())
-        if os.name == "nt":
-            proc.nice(psutil.REALTIME_PRIORITY_CLASS)  # Windows
-        else:
-            proc.nice(-20)  # Other
-    except:
-        print("Warning: Could not set process to maximum priority.\n")
 
-    # --------------------------------------------------------------------------
-    #   Connect to Arduino
-    # --------------------------------------------------------------------------
-
-    ard = Arduino_functions.Arduino(name="Ard", baudrate=115200)
+    # Connect to Arduino
+    ard = Arduino(name="Ard", baudrate=115200)
     ard.auto_connect(
         Path("last_used_port.txt"), match_identity="Wave generator"
     )
@@ -141,53 +135,35 @@ if __name__ == "__main__":
     if not (ard.is_alive):
         print("\nCheck connection and try resetting the Arduino.")
         print("Exiting...\n")
-        sys.exit(0)
+        sys.exit(1)
 
-    # --------------------------------------------------------------------------
-    #   Create application
-    # --------------------------------------------------------------------------
-    QtCore.QThread.currentThread().setObjectName("MAIN")  # For DEBUG info
-
-    app = 0  # Work-around for kernel crash when using Spyder IDE
+    # Create application
     app = QtCore.QCoreApplication(sys.argv)
-    app.aboutToQuit.connect(exit_program)
+    app.aboutToQuit.connect(about_to_quit)
 
-    # --------------------------------------------------------------------------
-    #   Set up multithreaded communication with the Arduino
-    # --------------------------------------------------------------------------
-
-    # Create QDeviceIO
-    qdev = DvG_QDeviceIO.QDeviceIO(ard)
-
-    # Create workers
+    # Set up multithreaded communication with the Arduino
     # fmt: off
+    qdev = QDeviceIO(ard)
     qdev.create_worker_DAQ(
-        DAQ_trigger     = DvG_QDeviceIO.DAQ_trigger.INTERNAL_TIMER,
+        DAQ_trigger     = DAQ_trigger.INTERNAL_TIMER,
         DAQ_function    = DAQ_function,
-        DAQ_interval_ms = DAQ_INTERVAL_ARDUINO,
-        debug           = DEBUG,)
+        DAQ_interval_ms = DAQ_INTERVAL_MS,
+        debug           = DEBUG,
+    )
     # fmt: on
 
-    qdev.create_worker_jobs(debug=DEBUG)
-
     # Connect signals to slots
-    qdev.signal_DAQ_updated.connect(update_CLI)
+    qdev.signal_DAQ_updated.connect(update_terminal)
     qdev.signal_connection_lost.connect(notify_connection_lost)
-
-    # Test to connect the internal clock to another QDeviceIO instance in
-    # mode SINGLE_SHOT)_WAKE_UP. Is a viable option :)
-    qdev.worker_DAQ._timer.timeout.connect(lambda: print("\t%.3f" % time.perf_counter()))
 
     # Start workers
     qdev.start(DAQ_priority=QtCore.QThread.TimeCriticalPriority)
 
     # --------------------------------------------------------------------------
-    #   Start the main loop
+    #   Start the main event loop
     # --------------------------------------------------------------------------
 
-    while True:
-        app.processEvents()
+    # Catch CTRL+C
+    signal.signal(signal.SIGINT, keyboardInterruptHandler)
 
-        if qdev.update_counter_DAQ >= 20:
-            exit_program()
-            break
+    sys.exit(app.exec_())
