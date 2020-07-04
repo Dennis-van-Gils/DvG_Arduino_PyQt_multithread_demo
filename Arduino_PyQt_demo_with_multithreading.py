@@ -29,7 +29,7 @@ from dvg_debug_functions import dprint, print_fancy_traceback as pft
 
 from dvg_devices.Arduino_protocol_serial import Arduino  # I.e. the `device`
 
-# from dvg_devices.Arduino_qdev import Arduino_qdev  # Alternative approach as a mixed-in QDeviceIO class
+#from dvg_devices.Arduino_qdev import Arduino_qdev  # Alternative approach as subclassed QDeviceIO()
 from dvg_qdeviceio import QDeviceIO
 
 
@@ -466,7 +466,7 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
 
     """
-    # Alternative approach as a mixed-in QDeviceIO class
+    # Alternative approach as subclassed QDeviceIO()
     # fmt: off
     qdev_ard = Arduino_qdev(
         dev                        = ard,
