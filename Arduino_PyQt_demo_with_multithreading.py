@@ -6,8 +6,8 @@ data using PyQt5 and PyQtGraph.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "02-07-2020"
-__version__ = "3.0"
+__date__ = "07-07-2020"
+__version__ = "3.1"
 
 import os
 import sys
@@ -29,15 +29,15 @@ from dvg_debug_functions import dprint, print_fancy_traceback as pft
 
 from dvg_devices.Arduino_protocol_serial import Arduino  # I.e. the `device`
 
-#from dvg_devices.Arduino_qdev import Arduino_qdev  # Alternative approach as subclassed QDeviceIO()
+# from dvg_devices.Arduino_qdev import Arduino_qdev  # Alternative approach as subclassed QDeviceIO()
 from dvg_qdeviceio import QDeviceIO
 
 
 # Constants
 # fmt: off
-DAQ_INTERVAL_MS     = 10  # 10 [ms]
-DRAW_INTERVAL_CHART = 10  # 10 [ms]
-CHART_HISTORY_TIME  = 10  # 10 [s]
+DAQ_INTERVAL_MS    = 10  # 10 [ms]
+CHART_INTERVAL_MS  = 10  # 10 [ms]
+CHART_HISTORY_TIME = 10  # 10 [s]
 
 # Global variables for date-time keeping
 cur_date_time = QDateTime.currentDateTime()
@@ -298,8 +298,7 @@ def update_chart():
     if DEBUG:
         dprint(
             "  update_curve done in %.2f ms"
-            % (time.perf_counter() - tick)
-            * 1000
+            % ((time.perf_counter() - tick) * 1000)
         )
 
 
@@ -322,7 +321,7 @@ def stop_running():
 def notify_connection_lost():
     stop_running()
 
-    excl = "    ! ! ! ! ! ! ! !    "
+    excl = "    ! ! ! ! ! ! !    "
     window.qlbl_title.setText("%sLOST CONNECTION%s" % (excl, excl))
 
     str_msg = (
@@ -509,7 +508,7 @@ if __name__ == "__main__":
 
     timer_chart = QtCore.QTimer()
     timer_chart.timeout.connect(update_chart)
-    timer_chart.start(DRAW_INTERVAL_CHART)
+    timer_chart.start(CHART_INTERVAL_MS)
 
     # --------------------------------------------------------------------------
     #   Start the main GUI event loop
