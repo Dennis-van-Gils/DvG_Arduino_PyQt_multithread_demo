@@ -6,4 +6,4 @@ pyqtgraph~=0.10
 
 dvg-debug-functions~=2.0
 dvg-qdeviceio~=0.2.0
-dvg-devices~=0.0.4
+dvg-devices~=0.0.5
