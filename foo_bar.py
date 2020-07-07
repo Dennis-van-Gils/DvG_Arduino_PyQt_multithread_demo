@@ -19,7 +19,7 @@ from PyQt5 import QtCore
 from dvg_debug_functions import dprint, print_fancy_traceback as pft
 
 from dvg_devices.Arduino_protocol_serial import Arduino  # I.e. the `device`
-from dvg_qdeviceio import QDeviceIO, DAQ_trigger
+from dvg_qdeviceio import QDeviceIO, DAQ_TRIGGER
 
 # Constants
 DAQ_INTERVAL_MS = 10  # 10 [ms]
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     # fmt: off
     qdev = QDeviceIO(ard)
     qdev.create_worker_DAQ(
-        DAQ_trigger     = DAQ_trigger.INTERNAL_TIMER,
+        DAQ_trigger     = DAQ_TRIGGER.INTERNAL_TIMER,
         DAQ_function    = DAQ_function,
         DAQ_interval_ms = DAQ_INTERVAL_MS,
         debug           = DEBUG,
