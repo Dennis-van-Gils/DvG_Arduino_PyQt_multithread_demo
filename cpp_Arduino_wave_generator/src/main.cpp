@@ -1,12 +1,13 @@
 /*******************************************************************************
   Dennis van Gils
-  23-06-2020
+  14-07-2020
  ******************************************************************************/
 
 #include <Arduino.h>
 #include <math.h>
 #include "DvG_SerialCommand.h"
 
+// On the Arduino M0 Pro:
 // Serial   : Programming USB port
 // SerialUSB: Native USB port. Baudrate setting gets ignored and is always as
 //            fast as possible.
@@ -44,7 +45,7 @@ void loop() {
   // Generate wave sample every millisecond
   curMillis = millis();
   if (curMillis - prevMillis >= 1) {
-    
+
     if (wave_type == WAVE_SINE) {
       wave = sin(2*PI*wave_freq*curMillis/1e3);
     } else if (wave_type == WAVE_SQUARE) {
@@ -61,8 +62,8 @@ void loop() {
     strCmd = sc.getCmd();
 
     if (strcmp(strCmd, "id?") == 0) {
-      Ser.println("Wave generator");
-    
+      Ser.println("Arduino, Wave generator");
+
     } else if(strcmp(strCmd, "sine") == 0) {
       wave_type = WAVE_SINE;
     } else if(strcmp(strCmd, "square") == 0) {
