@@ -4,15 +4,16 @@
 - CLI output only
 - Mode: INTERNAL_TIMER as master to another SINGLE_SHOT_WAKE_UP
 - Trick with fake device 'Sync()'
+
+TODO: Investigate hang in about_to_quit() when lost_connection was tripped.
 """
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "02-07-2020"
-__version__ = "3.0"
+__date__ = "16-07-2020"
+__version__ = "4.0"
 
 import sys
-from pathlib import Path
 import time
 import signal  # To catch CTRL+C and quit
 
@@ -26,7 +27,7 @@ from dvg_qdeviceio import QDeviceIO, DAQ_TRIGGER
 DAQ_INTERVAL_MS = 10  # 10 [ms]
 
 # Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
-DEBUG = False
+DEBUG = True
 
 
 # ------------------------------------------------------------------------------
@@ -92,14 +93,14 @@ def update_terminal():
 
 def DAQ_function():
     # Query the Arduino for its state
-    [success, tmp_state] = ard.query_ascii_values("?", separator="\t")
+    success, tmp_state = ard.query_ascii_values("?", delimiter="\t")
     if not (success):
         dprint("'%s' reports IOError" % ard.name)
         return False
 
     # Parse readings into separate state variables
     try:
-        [state.time, state.reading_1] = tmp_state
+        state.time, state.reading_1 = tmp_state
         state.time /= 1000
     except Exception as err:
         pft(err, 3)
@@ -129,10 +130,10 @@ def DAQ_function():
 if __name__ == "__main__":
 
     # Connect to Arduino
-    ard = Arduino(name="Ard", baudrate=115200)
-    ard.auto_connect(
-        Path("last_used_port.txt"), match_identity="Wave generator"
-    )
+    ard = Arduino(name="Ard", connect_to_specific_ID="Wave generator")
+
+    ard.serial_settings["baudrate"] = 115200
+    ard.auto_connect("last_used_port.txt")
 
     if not (ard.is_alive):
         print("\nCheck connection and try resetting the Arduino.")
@@ -167,7 +168,7 @@ if __name__ == "__main__":
     # fmt: off
     qdev_sync = QDeviceIO(sync)
     qdev_sync.create_worker_DAQ(
-        DAQ_trigger     = DAQ_trigger.INTERNAL_TIMER,
+        DAQ_trigger     = DAQ_TRIGGER.INTERNAL_TIMER,
         DAQ_function    = sync.tick,
         DAQ_interval_ms = DAQ_INTERVAL_MS,
         debug           = DEBUG,

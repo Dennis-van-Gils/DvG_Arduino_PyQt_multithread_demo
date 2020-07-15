@@ -10,12 +10,11 @@ acquisition rate (DAQ rate) when you, e.g., rapidly resize the window.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "02-07-2020"
-__version__ = "3.0"
+__date__ = "16-07-2020"
+__version__ = "4.0"
 
 import os
 import sys
-from pathlib import Path
 import time
 
 import numpy as np
@@ -341,7 +340,7 @@ def DAQ_function():
         state.prev_tick = now
 
     # Query the Arduino for its state
-    [success, tmp_state] = ard.query_ascii_values("?", separator="\t")
+    success, tmp_state = ard.query_ascii_values("?", delimiter="\t")
     if not (success):
         dprint(
             "'%s' reports IOError @ %s %s"
@@ -350,7 +349,7 @@ def DAQ_function():
 
     # Parse readings into separate state variables
     try:
-        [state.time, state.reading_1] = tmp_state
+        state.time, state.reading_1 = tmp_state
         state.time /= 1000
     except Exception as err:
         pft(err, 3)
@@ -406,10 +405,10 @@ if __name__ == "__main__":
     #   Connect to Arduino
     # --------------------------------------------------------------------------
 
-    ard = Arduino(name="Ard", baudrate=115200)
-    ard.auto_connect(
-        Path("last_used_port.txt"), match_identity="Wave generator"
-    )
+    ard = Arduino(name="Ard", connect_to_specific_ID="Wave generator")
+
+    ard.serial_settings["baudrate"] = 115200
+    ard.auto_connect("last_used_port.txt")
 
     if not (ard.is_alive):
         print("\nCheck connection and try resetting the Arduino.")
