@@ -7,7 +7,8 @@ __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
 __date__ = "16-07-2020"
-__version__ = "4.0"
+__version__ = "4.1"
+# pylint: disable=bare-except, broad-except
 
 import os
 import sys
@@ -29,6 +30,15 @@ from dvg_debug_functions import dprint, print_fancy_traceback as pft
 from dvg_devices.Arduino_protocol_serial import Arduino  # I.e. the `device`
 from dvg_qdeviceio import QDeviceIO
 
+try:
+    # `conda install pyopengl` or `pip install pyopengl`
+    import OpenGL.GL as gl  # pylint: disable=unused-import
+except:
+    pass
+else:
+    pg.setConfigOptions(useOpenGL=True)
+    pg.setConfigOptions(antialias=True)
+    pg.setConfigOptions(enableExperimental=True)
 
 # Constants
 # fmt: off
@@ -458,21 +468,6 @@ if __name__ == "__main__":
     #   Set up multithreaded communication with the Arduino
     # --------------------------------------------------------------------------
 
-    """
-    # Alternative approach as subclassed QDeviceIO()
-    # fmt: off
-    qdev_ard = Arduino_qdev(
-        dev                        = ard,
-        DAQ_function               = DAQ_function,
-        DAQ_interval_ms            = DAQ_INTERVAL_MS,
-        critical_not_alive_count   = 3,
-        calc_DAQ_rate_every_N_iter = 100,
-        debug                      = DEBUG,
-    )
-    # fmt: on
-    """
-
-    # """
     # Create QDeviceIO
     qdev_ard = QDeviceIO(ard)
 
