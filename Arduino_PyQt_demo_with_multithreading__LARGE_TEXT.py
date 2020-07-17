@@ -179,10 +179,10 @@ class MainWindow(QtWid.QWidget):
 
         font = QtGui.QFont()
         font.setPixelSize(26)
-        self.pi_chart.getAxis("bottom").tickFont = font
+        self.pi_chart.getAxis("bottom").setTickFont(font)
         self.pi_chart.getAxis("bottom").setStyle(tickTextOffset=20)
         self.pi_chart.getAxis("bottom").setHeight(90)
-        self.pi_chart.getAxis("left").tickFont = font
+        self.pi_chart.getAxis("left").setTickFont(font)
         self.pi_chart.getAxis("left").setStyle(tickTextOffset=20)
         self.pi_chart.getAxis("left").setWidth(120)
 
