@@ -6,8 +6,9 @@ data using PyQt5 and PyQtGraph.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "16-07-2020"
-__version__ = "4.0"
+__date__ = "17-07-2020"
+__version__ = "4.1"
+# pylint: disable=bare-except, broad-except
 
 import os
 import sys
@@ -21,26 +22,31 @@ from PyQt5 import QtWidgets as QtWid
 from PyQt5.QtCore import QDateTime
 import pyqtgraph as pg
 
-from DvG_pyqt_ChartHistory import ChartHistory
 from dvg_debug_functions import dprint, print_fancy_traceback as pft
-
 from dvg_devices.Arduino_protocol_serial import Arduino
 from dvg_qdeviceio import QDeviceIO
 
+from DvG_pyqt_ChartHistory import ChartHistory
+
 # Constants
 # fmt: off
-DAQ_INTERVAL_MS     = 10  # 10 [ms]
-DRAW_INTERVAL_CHART = 10  # 10 [ms]
-CHART_HISTORY_TIME  = 10  # 10 [s]
-
-# Global variables for date-time keeping
-cur_date_time = QDateTime.currentDateTime()
-str_cur_date  = cur_date_time.toString("dd-MM-yyyy")
-str_cur_time  = cur_date_time.toString("HH:mm:ss")
+DAQ_INTERVAL_MS    = 10  # 10 [ms]
+CHART_INTERVAL_MS  = 10  # 10 [ms]
+CHART_HISTORY_TIME = 10  # 10 [s]
 # fmt: on
 
 # Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
 DEBUG = False
+
+
+def get_current_date_time():
+    cur_date_time = QDateTime.currentDateTime()
+    return (
+        cur_date_time.toString("dd-MM-yyyy"),  # Date
+        cur_date_time.toString("HH:mm:ss"),  # Time
+        cur_date_time.toString("yyMMdd_HHmmss"),  # Reverse notation date-time
+    )
+
 
 # ------------------------------------------------------------------------------
 #   Arduino state
@@ -82,11 +88,11 @@ class MainWindow(QtWid.QWidget):
         self.gw_chart.setBackground([20, 20, 20])
         self.pi_chart = self.gw_chart.addPlot()
 
-        p = {"color": "#BBB", "font-size": "10pt"}
+        p = {"color": "#CCC", "font-size": "10pt"}
         self.pi_chart.showGrid(x=1, y=1)
         self.pi_chart.setTitle("Arduino timeseries", **p)
         self.pi_chart.setLabel("bottom", text="history (sec)", **p)
-        self.pi_chart.setLabel("left", text="readings", **p)
+        self.pi_chart.setLabel("left", text="amplitude", **p)
         self.pi_chart.setRange(
             xRange=[-1.04 * CHART_HISTORY_TIME, CHART_HISTORY_TIME * 0.04],
             yRange=[-1.1, 1.1],
@@ -127,10 +133,7 @@ def about_to_quit():
 
 def DAQ_function():
     # Date-time keeping
-    global cur_date_time, str_cur_date, str_cur_time
-    cur_date_time = QDateTime.currentDateTime()
-    str_cur_date = cur_date_time.toString("dd-MM-yyyy")
-    str_cur_time = cur_date_time.toString("HH:mm:ss")
+    str_cur_date, str_cur_time, str_cur_datetime = get_current_date_time()
 
     # Query the Arduino for its state
     success, tmp_state = ard.query_ascii_values("?", delimiter="\t")
@@ -154,7 +157,7 @@ def DAQ_function():
         return False
 
     # Use Arduino time or PC time?
-    use_PC_time = False
+    use_PC_time = True
     if use_PC_time:
         state.time = time.perf_counter()
 
@@ -230,8 +233,8 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
 
     timer_chart = QtCore.QTimer()
-    timer_chart.timeout.connect(lambda: window.CH_1.update_curve())
-    timer_chart.start(DRAW_INTERVAL_CHART)
+    timer_chart.timeout.connect(window.CH_1.update_curve)
+    timer_chart.start(CHART_INTERVAL_MS)
 
     # --------------------------------------------------------------------------
     #   Start the main GUI event loop

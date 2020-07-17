@@ -17,7 +17,7 @@ import signal  # To catch CTRL+C and quit
 from PyQt5 import QtCore
 from dvg_debug_functions import dprint, print_fancy_traceback as pft
 
-from dvg_devices.Arduino_protocol_serial import Arduino  # I.e. the `device`
+from dvg_devices.Arduino_protocol_serial import Arduino
 from dvg_qdeviceio import QDeviceIO, DAQ_TRIGGER
 
 # Constants

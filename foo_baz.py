@@ -4,8 +4,6 @@
 - CLI output only
 - Mode: INTERNAL_TIMER as master to another SINGLE_SHOT_WAKE_UP
 - Trick with fake device 'Sync()'
-
-TODO: Investigate hang in about_to_quit() when lost_connection was tripped.
 """
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
@@ -20,14 +18,14 @@ import signal  # To catch CTRL+C and quit
 from PyQt5 import QtCore
 from dvg_debug_functions import dprint, print_fancy_traceback as pft
 
-from dvg_devices.Arduino_protocol_serial import Arduino  # I.e. the `device`
+from dvg_devices.Arduino_protocol_serial import Arduino
 from dvg_qdeviceio import QDeviceIO, DAQ_TRIGGER
 
 # Constants
 DAQ_INTERVAL_MS = 10  # 10 [ms]
 
 # Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
-DEBUG = True
+DEBUG = False
 
 
 # ------------------------------------------------------------------------------

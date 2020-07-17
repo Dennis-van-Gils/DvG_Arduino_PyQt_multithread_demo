@@ -6,7 +6,7 @@ data using PyQt5 and PyQtGraph.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "16-07-2020"
+__date__ = "17-07-2020"
 __version__ = "4.1"
 # pylint: disable=bare-except, broad-except
 
@@ -22,15 +22,16 @@ from PyQt5 import QtWidgets as QtWid
 from PyQt5.QtCore import QDateTime
 import pyqtgraph as pg
 
+from dvg_debug_functions import dprint, print_fancy_traceback as pft
+from dvg_devices.Arduino_protocol_serial import Arduino
+from dvg_qdeviceio import QDeviceIO
+
 from DvG_pyqt_FileLogger import FileLogger
 from DvG_pyqt_ChartHistory import ChartHistory
 from DvG_pyqt_controls import create_Toggle_button, SS_GROUP
-from dvg_debug_functions import dprint, print_fancy_traceback as pft
-
-from dvg_devices.Arduino_protocol_serial import Arduino  # I.e. the `device`
-from dvg_qdeviceio import QDeviceIO
 
 try:
+    # To enable OpenGL GPU acceleration:
     # `conda install pyopengl` or `pip install pyopengl`
     import OpenGL.GL as gl  # pylint: disable=unused-import
 except:
@@ -45,15 +46,20 @@ else:
 DAQ_INTERVAL_MS    = 10  # 10 [ms]
 CHART_INTERVAL_MS  = 10  # 10 [ms]
 CHART_HISTORY_TIME = 10  # 10 [s]
-
-# Global variables for date-time keeping
-cur_date_time = QDateTime.currentDateTime()
-str_cur_date  = cur_date_time.toString("dd-MM-yyyy")
-str_cur_time  = cur_date_time.toString("HH:mm:ss")
 # fmt: on
 
 # Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
 DEBUG = False
+
+
+def get_current_date_time():
+    cur_date_time = QDateTime.currentDateTime()
+    return (
+        cur_date_time.toString("dd-MM-yyyy"),  # Date
+        cur_date_time.toString("HH:mm:ss"),  # Time
+        cur_date_time.toString("yyMMdd_HHmmss"),  # Reverse notation date-time
+    )
+
 
 # ------------------------------------------------------------------------------
 #   Arduino state
@@ -148,11 +154,11 @@ class MainWindow(QtWid.QWidget):
         self.gw_chart.setBackground([20, 20, 20])
         self.pi_chart = self.gw_chart.addPlot()
 
-        p = {"color": "#BBB", "font-size": "10pt"}
+        p = {"color": "#CCC", "font-size": "10pt"}
         self.pi_chart.showGrid(x=1, y=1)
         self.pi_chart.setTitle("Arduino timeseries", **p)
         self.pi_chart.setLabel("bottom", text="history (sec)", **p)
-        self.pi_chart.setLabel("left", text="readings", **p)
+        self.pi_chart.setLabel("left", text="amplitude", **p)
         self.pi_chart.setRange(
             xRange=[-1.04 * CHART_HISTORY_TIME, CHART_HISTORY_TIME * 0.04],
             yRange=[-1.1, 1.1],
@@ -283,6 +289,7 @@ class MainWindow(QtWid.QWidget):
 
 @QtCore.pyqtSlot()
 def update_GUI():
+    str_cur_date, str_cur_time, _ = get_current_date_time()
     window.qlbl_cur_date_time.setText("%s    %s" % (str_cur_date, str_cur_time))
     window.qlbl_update_counter.setText("%i" % qdev_ard.update_counter_DAQ)
     window.qlbl_DAQ_rate.setText("DAQ: %.1f Hz" % qdev_ard.obtained_DAQ_rate_Hz)
@@ -328,9 +335,10 @@ def stop_running():
 def notify_connection_lost():
     stop_running()
 
-    excl = "    ! ! ! ! ! ! !    "
+    excl = "    ! ! ! ! ! !    "
     window.qlbl_title.setText("%sLOST CONNECTION%s" % (excl, excl))
 
+    str_cur_date, str_cur_time, _ = get_current_date_time()
     str_msg = ("%s %s\n" "Lost connection to Arduino.\n" "  '%s': %salive") % (
         str_cur_date,
         str_cur_time,
@@ -360,10 +368,7 @@ def about_to_quit():
 
 def DAQ_function():
     # Date-time keeping
-    global cur_date_time, str_cur_date, str_cur_time
-    cur_date_time = QDateTime.currentDateTime()
-    str_cur_date = cur_date_time.toString("dd-MM-yyyy")
-    str_cur_time = cur_date_time.toString("HH:mm:ss")
+    str_cur_date, str_cur_time, str_cur_datetime = get_current_date_time()
 
     # Query the Arduino for its state
     success, tmp_state = ard.query_ascii_values("?", delimiter="\t")
@@ -396,7 +401,7 @@ def DAQ_function():
 
     # Logging to file
     if file_logger.starting:
-        fn_log = cur_date_time.toString("yyMMdd_HHmmss") + ".txt"
+        fn_log = str_cur_datetime + ".txt"
         if file_logger.create_log(state.time, fn_log, mode="w"):
             file_logger.signal_set_recording_text.emit(
                 "Recording to file: " + fn_log
@@ -480,9 +485,7 @@ if __name__ == "__main__":
         debug                    = DEBUG,
     )
     # fmt: on
-
     qdev_ard.create_worker_jobs(debug=DEBUG)
-    # """
 
     # Connect signals to slots
     qdev_ard.signal_DAQ_updated.connect(update_GUI)
