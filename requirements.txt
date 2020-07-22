@@ -4,6 +4,6 @@ numpy~=1.15
 pyqt5~=5.12
 pyqtgraph~=0.10
 
-dvg-debug-functions==2.1
-dvg-qdeviceio==0.2.2
+dvg-debug-functions==2.1.1
+dvg-qdeviceio==0.3.0
 dvg-devices==0.0.7
