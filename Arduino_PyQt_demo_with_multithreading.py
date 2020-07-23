@@ -35,8 +35,9 @@ try:
     # `conda install pyopengl` or `pip install pyopengl`
     import OpenGL.GL as gl  # pylint: disable=unused-import
 except:
-    pass
+    print("OpenGL acceleration: Disabled")
 else:
+    print("OpenGL acceleration: Enabled")
     pg.setConfigOptions(useOpenGL=True)
     pg.setConfigOptions(antialias=True)
     pg.setConfigOptions(enableExperimental=True)
