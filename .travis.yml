@@ -1,19 +1,18 @@
 language: python
-sudo: required
 
 python:
-  - "3.7"
+  - "3.8"
   
 before_install:
   wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
   bash ./miniconda.sh -b -p ${HOME}/miniconda;
   export PATH=${HOME}/miniconda/bin:$PATH;
-  conda install --yes python="3.7" pyqt;
+  conda install --yes python="3.8" pyqt;
   pip install -r requirements.txt
   
 script:
-  - python Arduino_PyQt_demo_with_multithreading.py
-  - python Arduino_PyQt_demo_with_multithreading__minimalistic.py
-  - python Arduino_PyQt_demo_without_multithreading.py
-  - python foo_bar.py
-  - python foo_baz.py
+  - python demo_A_GUI_full.py
+  - python demo_B_GUI_minimal.py
+  - python demo_C_singlethread_for_comparison.py
+  - python demo_D_no_GUI.py
+  - python demo_E_no_GUI.py
