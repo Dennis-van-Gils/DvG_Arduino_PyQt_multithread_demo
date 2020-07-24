@@ -6,8 +6,8 @@ data using PyQt5 and PyQtGraph.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "17-07-2020"
-__version__ = "4.1"
+__date__ = "24-07-2020"
+__version__ = "5.0"
 # pylint: disable=bare-except, broad-except
 
 import os
@@ -22,7 +22,7 @@ from PyQt5 import QtWidgets as QtWid
 from PyQt5.QtCore import QDateTime
 import pyqtgraph as pg
 
-from dvg_debug_functions import dprint, print_fancy_traceback as pft
+from dvg_debug_functions import tprint, dprint, print_fancy_traceback as pft
 from dvg_devices.Arduino_protocol_serial import Arduino
 from dvg_qdeviceio import QDeviceIO
 
@@ -31,22 +31,26 @@ from DvG_pyqt_ChartHistory import ChartHistory
 from DvG_pyqt_controls import create_Toggle_button, SS_GROUP
 
 try:
-    # To enable OpenGL GPU acceleration:
-    # `conda install pyopengl` or `pip install pyopengl`
     import OpenGL.GL as gl  # pylint: disable=unused-import
 except:
     print("OpenGL acceleration: Disabled")
+    print("To install: `conda install pyopengl` or `pip install pyopengl`")
 else:
     print("OpenGL acceleration: Enabled")
     pg.setConfigOptions(useOpenGL=True)
     pg.setConfigOptions(antialias=True)
     pg.setConfigOptions(enableExperimental=True)
 
+# Global pyqtgraph configuration
+pg.setConfigOptions(leftButtonPan=False)
+pg.setConfigOption("foreground", "#EEE")
+
 # Constants
 # fmt: off
 DAQ_INTERVAL_MS    = 10  # 10 [ms]
-CHART_INTERVAL_MS  = 10  # 10 [ms]
+CHART_INTERVAL_MS  = 20  # 20 [ms]
 CHART_HISTORY_TIME = 10  # 10 [s]
+LARGE_TEXT = False       # For demonstration on a beamer
 # fmt: on
 
 # Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
@@ -89,13 +93,40 @@ state = State()
 #   MainWindow
 # ------------------------------------------------------------------------------
 
+if LARGE_TEXT:
+    SS_GROUP = (
+        "QGroupBox {"
+        "background-color: rgb(252, 208, 173);"
+        "border: 4px solid gray;"
+        "border-radius: 5px;"
+        "font: bold italic;"
+        "padding: 24 0 0 0px;"
+        "margin-top: 2ex}"
+        "QGroupBox::title {"
+        "subcontrol-origin: margin;"
+        "subcontrol-position: top center;"
+        "padding: 0 9px}"
+        "QGroupBox::flat {"
+        "border: 0px;"
+        "border-radius: 0 0px;"
+        "padding: 0}"
+    )
+
+    SS_ALL_FONTS = "QObject {font-size: 16pt}"
+    SS_LBL_TITLE = "QLabel {font-size: 20pt}"
+
 
 class MainWindow(QtWid.QWidget):
     def __init__(self, parent=None, **kwargs):
         super().__init__(parent, **kwargs)
 
-        self.setGeometry(50, 50, 800, 660)
-        self.setWindowTitle("Multithread PyQt & Arduino demo")
+        self.setWindowTitle("Arduino & PyQt multithread demo")
+        if LARGE_TEXT:
+            self.setGeometry(50, 50, 1024, 768)
+        else:
+            self.setGeometry(350, 50, 800, 660)
+        if LARGE_TEXT:
+            self.setStyleSheet(SS_ALL_FONTS)
 
         # -------------------------
         #   Top frame
@@ -104,7 +135,7 @@ class MainWindow(QtWid.QWidget):
         # Left box
         self.qlbl_update_counter = QtWid.QLabel("0")
         self.qlbl_DAQ_rate = QtWid.QLabel("DAQ: 0 Hz")
-        self.qlbl_DAQ_rate.setMinimumWidth(100)
+        self.qlbl_DAQ_rate.setMinimumWidth(200 if LARGE_TEXT else 100)
 
         vbox_left = QtWid.QVBoxLayout()
         vbox_left.addWidget(self.qlbl_update_counter, stretch=0)
@@ -113,14 +144,17 @@ class MainWindow(QtWid.QWidget):
 
         # Middle box
         self.qlbl_title = QtWid.QLabel(
-            "Multithread PyQt & Arduino demo",
-            font=QtGui.QFont("Palatino", 14, weight=QtGui.QFont.Bold),
+            "Arduino & PyQt multithread demo",
+            font=QtGui.QFont(
+                "Palatino", 20 if LARGE_TEXT else 14, weight=QtGui.QFont.Bold
+            ),
         )
         self.qlbl_title.setAlignment(QtCore.Qt.AlignCenter)
         self.qlbl_cur_date_time = QtWid.QLabel("00-00-0000    00:00:00")
         self.qlbl_cur_date_time.setAlignment(QtCore.Qt.AlignCenter)
         self.qpbt_record = create_Toggle_button(
-            "Click to start recording to file", minimumHeight=40
+            "Click to start recording to file",
+            minimumHeight=70 if LARGE_TEXT else 40,
         )
         self.qpbt_record.clicked.connect(self.process_qpbt_record)
 
@@ -155,9 +189,8 @@ class MainWindow(QtWid.QWidget):
         self.gw_chart.setBackground([20, 20, 20])
         self.pi_chart = self.gw_chart.addPlot()
 
-        p = {"color": "#CCC", "font-size": "10pt"}
+        p = {"color": "#EEE", "font-size": "20pt" if LARGE_TEXT else "10pt"}
         self.pi_chart.showGrid(x=1, y=1)
-        self.pi_chart.setTitle("Arduino timeseries", **p)
         self.pi_chart.setLabel("bottom", text="history (sec)", **p)
         self.pi_chart.setLabel("left", text="amplitude", **p)
         self.pi_chart.setRange(
@@ -166,8 +199,18 @@ class MainWindow(QtWid.QWidget):
             disableAutoRange=True,
         )
 
+        if LARGE_TEXT:
+            font = QtGui.QFont()
+            font.setPixelSize(26)
+            self.pi_chart.getAxis("bottom").setTickFont(font)
+            self.pi_chart.getAxis("bottom").setStyle(tickTextOffset=20)
+            self.pi_chart.getAxis("bottom").setHeight(90)
+            self.pi_chart.getAxis("left").setTickFont(font)
+            self.pi_chart.getAxis("left").setStyle(tickTextOffset=20)
+            self.pi_chart.getAxis("left").setWidth(120)
+
         # Create ChartHistory and PlotDataItem and link them together
-        PEN_01 = pg.mkPen(color=[0, 200, 0], width=3)
+        PEN_01 = pg.mkPen(color=[255, 255, 90], width=3)
         num_samples = round(CHART_HISTORY_TIME * 1e3 / DAQ_INTERVAL_MS)
         self.CH_1 = ChartHistory(num_samples, self.pi_chart.plot(pen=PEN_01))
 
@@ -306,15 +349,9 @@ def update_GUI():
 @QtCore.pyqtSlot()
 def update_chart():
     if DEBUG:
-        tick = time.perf_counter()
+        tprint("update_curve")
 
     window.CH_1.update_curve()
-
-    if DEBUG:
-        dprint(
-            "  update_curve done in %.2f ms"
-            % ((time.perf_counter() - tick) * 1000)
-        )
 
 
 # ------------------------------------------------------------------------------
@@ -336,15 +373,11 @@ def stop_running():
 def notify_connection_lost():
     stop_running()
 
-    excl = "    ! ! ! ! ! !    "
-    window.qlbl_title.setText("%sLOST CONNECTION%s" % (excl, excl))
-
+    window.qlbl_title.setText("    ! ! !    LOST CONNECTION    ! ! !    ")
     str_cur_date, str_cur_time, _ = get_current_date_time()
-    str_msg = ("%s %s\n" "Lost connection to Arduino.\n" "  '%s': %salive") % (
+    str_msg = "%s %s\nLost connection to Arduino." % (
         str_cur_date,
         str_cur_time,
-        ard.name,
-        "" if ard.is_alive else "not ",
     )
     print("\nCRITICAL ERROR @ %s" % str_msg)
     reply = QtWid.QMessageBox.warning(
@@ -496,10 +529,11 @@ if __name__ == "__main__":
     qdev_ard.start(DAQ_priority=QtCore.QThread.TimeCriticalPriority)
 
     # --------------------------------------------------------------------------
-    #   Create timers
+    #   Create chart refresh timer
     # --------------------------------------------------------------------------
 
     timer_chart = QtCore.QTimer()
+    # timer_chart.setTimerType(QtCore.Qt.PreciseTimer)
     timer_chart.timeout.connect(update_chart)
     timer_chart.start(CHART_INTERVAL_MS)
 

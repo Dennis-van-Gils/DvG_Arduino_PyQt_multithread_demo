@@ -12,8 +12,8 @@ the place.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "17-07-2020"
-__version__ = "4.1"
+__date__ = "24-07-2020"
+__version__ = "5.0"
 # pylint: disable=bare-except, broad-except
 
 import os
@@ -28,17 +28,32 @@ from PyQt5 import QtWidgets as QtWid
 from PyQt5.QtCore import QDateTime
 import pyqtgraph as pg
 
-from dvg_debug_functions import dprint, print_fancy_traceback as pft
+from dvg_debug_functions import tprint, dprint, print_fancy_traceback as pft
 from dvg_devices.Arduino_protocol_serial import Arduino
 
 from DvG_pyqt_FileLogger import FileLogger
 from DvG_pyqt_ChartHistory import ChartHistory
 from DvG_pyqt_controls import create_Toggle_button, SS_GROUP
 
+try:
+    import OpenGL.GL as gl  # pylint: disable=unused-import
+except:
+    print("OpenGL acceleration: Disabled")
+    print("To install: `conda install pyopengl` or `pip install pyopengl`")
+else:
+    print("OpenGL acceleration: Enabled")
+    pg.setConfigOptions(useOpenGL=True)
+    pg.setConfigOptions(antialias=True)
+    pg.setConfigOptions(enableExperimental=True)
+
+# Global pyqtgraph configuration
+pg.setConfigOptions(leftButtonPan=False)
+pg.setConfigOption("foreground", "#EEE")
+
 # Constants
 # fmt: off
 DAQ_INTERVAL_MS    = 10  # 10 [ms]
-CHART_INTERVAL_MS  = 10  # 10 [ms]
+CHART_INTERVAL_MS  = 20  # 20 [ms]
 CHART_HISTORY_TIME = 10  # 10 [s]
 # fmt: on
 
@@ -69,10 +84,11 @@ class State(object):
         self.time = None  # [s]
         self.reading_1 = np.nan
 
-        self.update_counter = 0
-        self.calc_DAQ_rate_every_N_iter = round(1e3 / DAQ_INTERVAL_MS)
+        # Keep track of the obtained DAQ rate
+        self.update_counter_DAQ = 0
         self.obtained_DAQ_rate_Hz = np.nan
-        self.prev_tick = 0
+        self.QET_rate = QtCore.QElapsedTimer()
+        self.rate_accumulator = 0
 
 
 state = State()
@@ -86,8 +102,8 @@ class MainWindow(QtWid.QWidget):
     def __init__(self, parent=None, **kwargs):
         super().__init__(parent, **kwargs)
 
+        self.setWindowTitle("Arduino & PyQt singlethread demo")
         self.setGeometry(50, 50, 800, 660)
-        self.setWindowTitle("Singlethread PyQt & Arduino demo")
 
         # -------------------------
         #   Top frame
@@ -105,7 +121,7 @@ class MainWindow(QtWid.QWidget):
 
         # Middle box
         self.qlbl_title = QtWid.QLabel(
-            "Singlethread PyQt & Arduino demo",
+            "Arduino & PyQt singlethread demo",
             font=QtGui.QFont("Palatino", 14, weight=QtGui.QFont.Bold),
         )
         self.qlbl_title.setAlignment(QtCore.Qt.AlignCenter)
@@ -147,9 +163,8 @@ class MainWindow(QtWid.QWidget):
         self.gw_chart.setBackground([20, 20, 20])
         self.pi_chart = self.gw_chart.addPlot()
 
-        p = {"color": "#CCC", "font-size": "10pt"}
+        p = {"color": "#EEE", "font-size": "10pt"}
         self.pi_chart.showGrid(x=1, y=1)
-        self.pi_chart.setTitle("Arduino timeseries", **p)
         self.pi_chart.setLabel("bottom", text="history (sec)", **p)
         self.pi_chart.setLabel("left", text="amplitude", **p)
         self.pi_chart.setRange(
@@ -159,7 +174,7 @@ class MainWindow(QtWid.QWidget):
         )
 
         # Create ChartHistory and PlotDataItem and link them together
-        PEN_01 = pg.mkPen(color=[0, 200, 0], width=3)
+        PEN_01 = pg.mkPen(color=[255, 255, 90], width=3)
         num_samples = round(CHART_HISTORY_TIME * 1e3 / DAQ_INTERVAL_MS)
         self.CH_1 = ChartHistory(num_samples, self.pi_chart.plot(pen=PEN_01))
 
@@ -272,6 +287,7 @@ class MainWindow(QtWid.QWidget):
 
 
 # ------------------------------------------------------------------------------
+#   update_GUI
 # ------------------------------------------------------------------------------
 
 
@@ -279,28 +295,23 @@ class MainWindow(QtWid.QWidget):
 def update_GUI():
     str_cur_date, str_cur_time, _ = get_current_date_time()
     window.qlbl_cur_date_time.setText("%s    %s" % (str_cur_date, str_cur_time))
-    window.qlbl_update_counter.setText("%i" % state.update_counter)
+    window.qlbl_update_counter.setText("%i" % state.update_counter_DAQ)
     window.qlbl_DAQ_rate.setText("DAQ: %.1f Hz" % state.obtained_DAQ_rate_Hz)
     window.qlin_reading_t.setText("%.3f" % state.time)
     window.qlin_reading_1.setText("%.4f" % state.reading_1)
 
 
 # ------------------------------------------------------------------------------
+#   update_chart
 # ------------------------------------------------------------------------------
 
 
 @QtCore.pyqtSlot()
 def update_chart():
     if DEBUG:
-        tick = time.perf_counter()
+        tprint("update_curve")
 
     window.CH_1.update_curve()
-
-    if DEBUG:
-        dprint(
-            "  update_curve done in %.2f ms"
-            % ((time.perf_counter() - tick) * 1000)
-        )
 
 
 # ------------------------------------------------------------------------------
@@ -331,18 +342,24 @@ def DAQ_function():
     # Date-time keeping
     str_cur_date, str_cur_time, str_cur_datetime = get_current_date_time()
 
-    state.update_counter += 1
+    state.update_counter_DAQ += 1
 
     # Keep track of the obtained DAQ rate
-    # Start at iteration 2 to ensure we have stabilized
-    now = time.perf_counter()
-    if state.update_counter == 2:
-        state.prev_tick = now
-    elif state.update_counter % state.calc_DAQ_rate_every_N_iter == 2:
-        state.obtained_DAQ_rate_Hz = state.calc_DAQ_rate_every_N_iter / (
-            now - state.prev_tick
-        )
-        state.prev_tick = now
+    if not state.QET_rate.isValid():
+        state.QET_rate.start()
+    else:
+        # Obtained DAQ rate
+        state.rate_accumulator += 1
+        dT = state.QET_rate.elapsed()
+
+        if dT >= 1000:  # Evaluate every N elapsed milliseconds. Hard-coded.
+            state.QET_rate.restart()
+            try:
+                state.obtained_DAQ_rate_Hz = state.rate_accumulator / dT * 1e3
+            except ZeroDivisionError:
+                state.obtained_DAQ_rate_Hz = np.nan
+
+            state.rate_accumulator = 0
 
     # Query the Arduino for its state
     success, tmp_state = ard.query_ascii_values("?", delimiter="\t")
@@ -446,6 +463,7 @@ if __name__ == "__main__":
     timer_state.start(DAQ_INTERVAL_MS)
 
     timer_chart = QtCore.QTimer()
+    # timer_chart.setTimerType(QtCore.Qt.PreciseTimer)
     timer_chart.timeout.connect(update_chart)
     timer_chart.start(CHART_INTERVAL_MS)
 

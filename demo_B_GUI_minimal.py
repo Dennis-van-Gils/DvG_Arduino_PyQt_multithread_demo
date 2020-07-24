@@ -6,8 +6,8 @@ data using PyQt5 and PyQtGraph.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "17-07-2020"
-__version__ = "4.1"
+__date__ = "24-07-2020"
+__version__ = "5.0"
 # pylint: disable=bare-except, broad-except
 
 import os
@@ -28,10 +28,25 @@ from dvg_qdeviceio import QDeviceIO
 
 from DvG_pyqt_ChartHistory import ChartHistory
 
+try:
+    import OpenGL.GL as gl  # pylint: disable=unused-import
+except:
+    print("OpenGL acceleration: Disabled")
+    print("To install: `conda install pyopengl` or `pip install pyopengl`")
+else:
+    print("OpenGL acceleration: Enabled")
+    pg.setConfigOptions(useOpenGL=True)
+    pg.setConfigOptions(antialias=True)
+    pg.setConfigOptions(enableExperimental=True)
+
+# Global pyqtgraph configuration
+pg.setConfigOptions(leftButtonPan=False)
+pg.setConfigOption("foreground", "#EEE")
+
 # Constants
 # fmt: off
 DAQ_INTERVAL_MS    = 10  # 10 [ms]
-CHART_INTERVAL_MS  = 10  # 10 [ms]
+CHART_INTERVAL_MS  = 20  # 20 [ms]
 CHART_HISTORY_TIME = 10  # 10 [s]
 # fmt: on
 
@@ -80,17 +95,16 @@ class MainWindow(QtWid.QWidget):
     def __init__(self, parent=None, **kwargs):
         super().__init__(parent, **kwargs)
 
-        self.setGeometry(50, 50, 800, 660)
-        self.setWindowTitle("Multithread PyQt & Arduino demo")
+        self.setGeometry(350, 50, 800, 660)
+        self.setWindowTitle("Arduino & PyQt multithread demo")
 
         # Create PlotItem
         self.gw_chart = pg.GraphicsWindow()
         self.gw_chart.setBackground([20, 20, 20])
         self.pi_chart = self.gw_chart.addPlot()
 
-        p = {"color": "#CCC", "font-size": "10pt"}
+        p = {"color": "#EEE", "font-size": "10pt"}
         self.pi_chart.showGrid(x=1, y=1)
-        self.pi_chart.setTitle("Arduino timeseries", **p)
         self.pi_chart.setLabel("bottom", text="history (sec)", **p)
         self.pi_chart.setLabel("left", text="amplitude", **p)
         self.pi_chart.setRange(
@@ -100,7 +114,7 @@ class MainWindow(QtWid.QWidget):
         )
 
         # Create ChartHistory and PlotDataItem and link them together
-        PEN_01 = pg.mkPen(color=[0, 200, 0], width=3)
+        PEN_01 = pg.mkPen(color=[255, 255, 90], width=3)
         num_samples = round(CHART_HISTORY_TIME * 1e3 / DAQ_INTERVAL_MS)
         self.CH_1 = ChartHistory(num_samples, self.pi_chart.plot(pen=PEN_01))
 
@@ -133,7 +147,7 @@ def about_to_quit():
 
 def DAQ_function():
     # Date-time keeping
-    str_cur_date, str_cur_time, str_cur_datetime = get_current_date_time()
+    str_cur_date, str_cur_time, _ = get_current_date_time()
 
     # Query the Arduino for its state
     success, tmp_state = ard.query_ascii_values("?", delimiter="\t")
