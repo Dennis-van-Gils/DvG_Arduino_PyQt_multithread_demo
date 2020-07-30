@@ -2,8 +2,9 @@ psutil~=5.6
 pyserial~=3.4
 numpy~=1.15
 pyqt5~=5.12
-pyqtgraph~=0.10
+pyqtgraph~=0.11
 
 dvg-debug-functions==2.1.1
 dvg-qdeviceio==0.3.0
 dvg-devices==0.1.0
+dvg-pyqtgraph-threadsafe==1.0.0

@@ -7,8 +7,8 @@
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "24-07-2020"
-__version__ = "5.0"
+__date__ = "30-07-2020"
+__version__ = "6.0"
 # pylint: disable=bare-except, broad-except
 
 import os
@@ -172,7 +172,7 @@ if __name__ == "__main__":
     qdev_ard.create_worker_DAQ(
         DAQ_function             = DAQ_function,
         DAQ_interval_ms          = DAQ_INTERVAL_MS,
-        critical_not_alive_count = 3,
+        critical_not_alive_count = 1,
         debug                    = DEBUG,
     )
     # fmt: on

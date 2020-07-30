@@ -12,8 +12,8 @@ the place.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "24-07-2020"
-__version__ = "5.0"
+__date__ = "30-07-2020"
+__version__ = "6.0"
 # pylint: disable=bare-except, broad-except
 
 import os
@@ -29,10 +29,10 @@ from PyQt5.QtCore import QDateTime
 import pyqtgraph as pg
 
 from dvg_debug_functions import tprint, dprint, print_fancy_traceback as pft
+from dvg_pyqtgraph_threadsafe import HistoryChartCurve
 from dvg_devices.Arduino_protocol_serial import Arduino
 
 from DvG_pyqt_FileLogger import FileLogger
-from DvG_pyqt_ChartHistory import ChartHistory
 from DvG_pyqt_controls import create_Toggle_button, SS_GROUP
 
 try:
@@ -158,7 +158,7 @@ class MainWindow(QtWid.QWidget):
         #   Bottom frame
         # -------------------------
 
-        # Create PlotItem
+        # GraphicsWindow
         self.gw_chart = pg.GraphicsWindow()
         self.gw_chart.setBackground([20, 20, 20])
         self.pi_chart = self.gw_chart.addPlot()
@@ -173,10 +173,12 @@ class MainWindow(QtWid.QWidget):
             disableAutoRange=True,
         )
 
-        # Create ChartHistory and PlotDataItem and link them together
-        PEN_01 = pg.mkPen(color=[255, 255, 90], width=3)
-        num_samples = round(CHART_HISTORY_TIME * 1e3 / DAQ_INTERVAL_MS)
-        self.CH_1 = ChartHistory(num_samples, self.pi_chart.plot(pen=PEN_01))
+        self.history_chart_curve = HistoryChartCurve(
+            capacity=round(CHART_HISTORY_TIME * 1e3 / DAQ_INTERVAL_MS),
+            linked_curve=self.pi_chart.plot(
+                pen=pg.mkPen(color=[255, 255, 90], width=3)
+            ),
+        )
 
         # 'Readings'
         p = {"readOnly": True}
@@ -264,7 +266,7 @@ class MainWindow(QtWid.QWidget):
         )
 
         if reply == QtWid.QMessageBox.Yes:
-            self.CH_1.clear()
+            self.history_chart_curve.clear()
 
     @QtCore.pyqtSlot()
     def process_qpbt_record(self):
@@ -285,33 +287,23 @@ class MainWindow(QtWid.QWidget):
     def process_qpbt_wave_sawtooth(self):
         ard.write("sawtooth")
 
+    @QtCore.pyqtSlot()
+    def update_GUI(self):
+        str_cur_date, str_cur_time, _ = get_current_date_time()
+        self.qlbl_cur_date_time.setText(
+            "%s    %s" % (str_cur_date, str_cur_time)
+        )
+        self.qlbl_update_counter.setText("%i" % state.update_counter_DAQ)
+        self.qlbl_DAQ_rate.setText("DAQ: %.1f Hz" % state.obtained_DAQ_rate_Hz)
+        self.qlin_reading_t.setText("%.3f" % state.time)
+        self.qlin_reading_1.setText("%.4f" % state.reading_1)
 
-# ------------------------------------------------------------------------------
-#   update_GUI
-# ------------------------------------------------------------------------------
+    @QtCore.pyqtSlot()
+    def update_chart(self):
+        if DEBUG:
+            tprint("update_curve")
 
-
-@QtCore.pyqtSlot()
-def update_GUI():
-    str_cur_date, str_cur_time, _ = get_current_date_time()
-    window.qlbl_cur_date_time.setText("%s    %s" % (str_cur_date, str_cur_time))
-    window.qlbl_update_counter.setText("%i" % state.update_counter_DAQ)
-    window.qlbl_DAQ_rate.setText("DAQ: %.1f Hz" % state.obtained_DAQ_rate_Hz)
-    window.qlin_reading_t.setText("%.3f" % state.time)
-    window.qlin_reading_1.setText("%.4f" % state.reading_1)
-
-
-# ------------------------------------------------------------------------------
-#   update_chart
-# ------------------------------------------------------------------------------
-
-
-@QtCore.pyqtSlot()
-def update_chart():
-    if DEBUG:
-        tprint("update_curve")
-
-    window.CH_1.update_curve()
+        self.history_chart_curve.update()
 
 
 # ------------------------------------------------------------------------------
@@ -368,6 +360,7 @@ def DAQ_function():
             "'%s' reports IOError @ %s %s"
             % (ard.name, str_cur_date, str_cur_time)
         )
+        sys.exit(0)
 
     # Parse readings into separate state variables
     try:
@@ -379,6 +372,7 @@ def DAQ_function():
             "'%s' reports IOError @ %s %s"
             % (ard.name, str_cur_date, str_cur_time)
         )
+        sys.exit(0)
 
     # Use Arduino time or PC time?
     use_PC_time = True
@@ -386,7 +380,7 @@ def DAQ_function():
         state.time = time.perf_counter()
 
     # Add readings to chart histories
-    window.CH_1.add_new_reading(state.time, state.reading_1)
+    window.history_chart_curve.append_data(state.time, state.reading_1)
 
     # Logging to file
     if file_logger.starting:
@@ -404,7 +398,7 @@ def DAQ_function():
         file_logger.write("%.3f\t%.4f\n" % (log_elapsed_time, state.reading_1))
 
     # We update the GUI right now because this is a singlethread demo
-    update_GUI()
+    window.update_GUI()
 
 
 # ------------------------------------------------------------------------------
@@ -464,7 +458,7 @@ if __name__ == "__main__":
 
     timer_chart = QtCore.QTimer()
     # timer_chart.setTimerType(QtCore.Qt.PreciseTimer)
-    timer_chart.timeout.connect(update_chart)
+    timer_chart.timeout.connect(window.update_chart)
     timer_chart.start(CHART_INTERVAL_MS)
 
     # --------------------------------------------------------------------------

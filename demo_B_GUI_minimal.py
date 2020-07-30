@@ -6,8 +6,8 @@ data using PyQt5 and PyQtGraph.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "24-07-2020"
-__version__ = "5.0"
+__date__ = "30-07-2020"
+__version__ = "6.0"
 # pylint: disable=bare-except, broad-except
 
 import os
@@ -23,10 +23,9 @@ from PyQt5.QtCore import QDateTime
 import pyqtgraph as pg
 
 from dvg_debug_functions import dprint, print_fancy_traceback as pft
+from dvg_pyqtgraph_threadsafe import HistoryChartCurve
 from dvg_devices.Arduino_protocol_serial import Arduino
 from dvg_qdeviceio import QDeviceIO
-
-from DvG_pyqt_ChartHistory import ChartHistory
 
 try:
     import OpenGL.GL as gl  # pylint: disable=unused-import
@@ -98,7 +97,7 @@ class MainWindow(QtWid.QWidget):
         self.setGeometry(350, 50, 800, 660)
         self.setWindowTitle("Arduino & PyQt multithread demo")
 
-        # Create PlotItem
+        # GraphicsWindow
         self.gw_chart = pg.GraphicsWindow()
         self.gw_chart.setBackground([20, 20, 20])
         self.pi_chart = self.gw_chart.addPlot()
@@ -113,10 +112,12 @@ class MainWindow(QtWid.QWidget):
             disableAutoRange=True,
         )
 
-        # Create ChartHistory and PlotDataItem and link them together
-        PEN_01 = pg.mkPen(color=[255, 255, 90], width=3)
-        num_samples = round(CHART_HISTORY_TIME * 1e3 / DAQ_INTERVAL_MS)
-        self.CH_1 = ChartHistory(num_samples, self.pi_chart.plot(pen=PEN_01))
+        self.history_chart_curve = HistoryChartCurve(
+            capacity=round(CHART_HISTORY_TIME * 1e3 / DAQ_INTERVAL_MS),
+            linked_curve=self.pi_chart.plot(
+                pen=pg.mkPen(color=[255, 255, 90], width=3)
+            ),
+        )
 
         vbox = QtWid.QVBoxLayout(self)
         vbox.addWidget(self.gw_chart, 1)
@@ -175,8 +176,8 @@ def DAQ_function():
     if use_PC_time:
         state.time = time.perf_counter()
 
-    # Add readings to chart histories
-    window.CH_1.add_new_reading(state.time, state.reading_1)
+    # Add readings to chart history
+    window.history_chart_curve.append_data(state.time, state.reading_1)
 
     return True
 
@@ -234,7 +235,7 @@ if __name__ == "__main__":
     qdev_ard.create_worker_DAQ(
         DAQ_function             = DAQ_function,
         DAQ_interval_ms          = DAQ_INTERVAL_MS,
-        critical_not_alive_count = 3,
+        critical_not_alive_count = 1,
         debug                    = DEBUG,
     )
     # fmt: on
@@ -247,7 +248,7 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
 
     timer_chart = QtCore.QTimer()
-    timer_chart.timeout.connect(window.CH_1.update_curve)
+    timer_chart.timeout.connect(window.history_chart_curve.update)
     timer_chart.start(CHART_INTERVAL_MS)
 
     # --------------------------------------------------------------------------

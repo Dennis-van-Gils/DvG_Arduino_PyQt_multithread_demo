@@ -28,6 +28,7 @@ docutils                  0.16                     py38_1
 dvg-debug-functions       2.1.1                    pypi_0    pypi
 dvg-devices               0.1.0                    pypi_0    pypi
 dvg-pid-controller        2.0.0                    pypi_0    pypi
+dvg-pyqtgraph-threadsafe  1.0.0                    pypi_0    pypi
 dvg-qdeviceio             0.3.0                    pypi_0    pypi
 dvg-ringbuffer            1.0.1                    pypi_0    pypi
 fftw                      3.3.8           nompi_h24e91a8_1111    conda-forge

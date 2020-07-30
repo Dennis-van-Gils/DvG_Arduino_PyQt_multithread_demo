@@ -25,6 +25,7 @@ docutils                      0.16
 dvg-debug-functions           2.1.1
 dvg-devices                   0.1.0
 dvg-pid-controller            2.0.0
+dvg-pyqtgraph-threadsafe      1.0.0
 dvg-qdeviceio                 0.3.0
 dvg-ringbuffer                1.0.1
 future                        0.18.2
