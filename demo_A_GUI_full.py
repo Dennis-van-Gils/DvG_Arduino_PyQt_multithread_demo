@@ -6,8 +6,8 @@ data using PyQt5 and PyQtGraph.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "30-07-2020"
-__version__ = "6.0"
+__date__ = "03-08-2020"
+__version__ = "7.0"
 # pylint: disable=bare-except, broad-except
 
 import os
@@ -184,9 +184,8 @@ class MainWindow(QtWid.QWidget):
         #   Bottom frame
         # -------------------------
 
-        # GraphicsWindow
-        self.gw_chart = pg.GraphicsWindow()
-        self.gw_chart.setBackground([20, 20, 20])
+        # GraphicsLayoutWidget
+        self.gw_chart = pg.GraphicsLayoutWidget()
         self.pi_chart = self.gw_chart.addPlot()
 
         p = {"color": "#EEE", "font-size": "20pt" if LARGE_TEXT else "10pt"}
@@ -212,7 +211,7 @@ class MainWindow(QtWid.QWidget):
         self.history_chart_curve = HistoryChartCurve(
             capacity=round(CHART_HISTORY_TIME * 1e3 / DAQ_INTERVAL_MS),
             linked_curve=self.pi_chart.plot(
-                pen=pg.mkPen(color=[255, 255, 90], width=3)
+                pen=pg.mkPen(color=[255, 255, 0], width=3)
             ),
         )
 
@@ -425,7 +424,7 @@ def DAQ_function():
         state.time = time.perf_counter()
 
     # Add readings to chart history
-    window.history_chart_curve.append_data(state.time, state.reading_1)
+    window.history_chart_curve.appendData(state.time, state.reading_1)
 
     # Logging to file
     if file_logger.starting:

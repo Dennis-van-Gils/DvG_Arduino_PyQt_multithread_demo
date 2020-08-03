@@ -7,8 +7,8 @@
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "30-07-2020"
-__version__ = "6.0"
+__date__ = "03-08-2020"
+__version__ = "7.0"
 # pylint: disable=bare-except, broad-except
 
 import os
