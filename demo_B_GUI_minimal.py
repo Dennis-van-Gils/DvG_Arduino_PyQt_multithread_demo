@@ -6,7 +6,7 @@ data using PyQt5 and PyQtGraph.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "03-08-2020"
+__date__ = "05-08-2020"
 __version__ = "7.0"
 # pylint: disable=bare-except, broad-except
 
@@ -24,6 +24,7 @@ import pyqtgraph as pg
 
 from dvg_debug_functions import dprint, print_fancy_traceback as pft
 from dvg_pyqtgraph_threadsafe import HistoryChartCurve
+
 from dvg_devices.Arduino_protocol_serial import Arduino
 from dvg_qdeviceio import QDeviceIO
 
@@ -94,8 +95,8 @@ class MainWindow(QtWid.QWidget):
     def __init__(self, parent=None, **kwargs):
         super().__init__(parent, **kwargs)
 
-        self.setGeometry(350, 50, 800, 660)
         self.setWindowTitle("Arduino & PyQt multithread demo")
+        self.setGeometry(350, 50, 800, 660)
 
         # GraphicsLayoutWidget
         self.gw_chart = pg.GraphicsLayoutWidget()
@@ -216,7 +217,6 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
     QtCore.QThread.currentThread().setObjectName("MAIN")  # For DEBUG info
 
-    app = 0  # Work-around for kernel crash when using Spyder IDE
     app = QtWid.QApplication(sys.argv)
     app.aboutToQuit.connect(about_to_quit)
 

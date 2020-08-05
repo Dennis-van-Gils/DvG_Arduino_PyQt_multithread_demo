@@ -12,7 +12,7 @@ the place.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "03-08-2020"
+__date__ = "05-08-2020"
 __version__ = "7.0"
 # pylint: disable=bare-except, broad-except
 
@@ -30,10 +30,15 @@ import pyqtgraph as pg
 
 from dvg_debug_functions import tprint, dprint, print_fancy_traceback as pft
 from dvg_pyqtgraph_threadsafe import HistoryChartCurve
+from dvg_pyqt_controls import (
+    create_Toggle_button,
+    SS_TEXTBOX_READ_ONLY,
+    SS_GROUP,
+)
+
 from dvg_devices.Arduino_protocol_serial import Arduino
 
 from DvG_pyqt_FileLogger import FileLogger
-from DvG_pyqt_controls import create_Toggle_button, SS_GROUP
 
 try:
     import OpenGL.GL as gl  # pylint: disable=unused-import
@@ -103,6 +108,7 @@ class MainWindow(QtWid.QWidget):
         super().__init__(parent, **kwargs)
 
         self.setWindowTitle("Arduino & PyQt singlethread demo")
+        self.setStyleSheet(SS_TEXTBOX_READ_ONLY + SS_GROUP)
         self.setGeometry(50, 50, 800, 660)
 
         # -------------------------
@@ -111,8 +117,8 @@ class MainWindow(QtWid.QWidget):
 
         # Left box
         self.qlbl_update_counter = QtWid.QLabel("0")
-        self.qlbl_DAQ_rate = QtWid.QLabel("DAQ: 0 Hz")
-        self.qlbl_DAQ_rate.setMinimumWidth(100)
+        self.qlbl_DAQ_rate = QtWid.QLabel("DAQ: nan Hz")
+        self.qlbl_DAQ_rate.setStyleSheet("QLabel {min-width: 7em}")
 
         vbox_left = QtWid.QVBoxLayout()
         vbox_left.addWidget(self.qlbl_update_counter, stretch=0)
@@ -128,7 +134,7 @@ class MainWindow(QtWid.QWidget):
         self.qlbl_cur_date_time = QtWid.QLabel("00-00-0000    00:00:00")
         self.qlbl_cur_date_time.setAlignment(QtCore.Qt.AlignCenter)
         self.qpbt_record = create_Toggle_button(
-            "Click to start recording to file", minimumHeight=40
+            "Click to start recording to file"
         )
         self.qpbt_record.clicked.connect(self.process_qpbt_record)
 
@@ -180,7 +186,7 @@ class MainWindow(QtWid.QWidget):
         )
 
         # 'Readings'
-        p = {"readOnly": True}
+        p = {"readOnly": True, "maximumWidth": 7 * em}
         self.qlin_reading_t = QtWid.QLineEdit(**p)
         self.qlin_reading_1 = QtWid.QLineEdit(**p)
 
@@ -194,7 +200,6 @@ class MainWindow(QtWid.QWidget):
         # fmt: on
 
         qgrp_readings = QtWid.QGroupBox("Readings")
-        qgrp_readings.setStyleSheet(SS_GROUP)
         qgrp_readings.setLayout(grid)
 
         # 'Wave type'
@@ -214,7 +219,6 @@ class MainWindow(QtWid.QWidget):
         # fmt: on
 
         qgrp_wave_type = QtWid.QGroupBox("Wave type")
-        qgrp_wave_type.setStyleSheet(SS_GROUP)
         qgrp_wave_type.setLayout(grid)
 
         # 'Chart'
@@ -226,7 +230,6 @@ class MainWindow(QtWid.QWidget):
         grid.setAlignment(QtCore.Qt.AlignTop)
 
         qgrp_chart = QtWid.QGroupBox("Chart")
-        qgrp_chart.setStyleSheet(SS_GROUP)
         qgrp_chart.setLayout(grid)
 
         vbox = QtWid.QVBoxLayout()
@@ -246,7 +249,7 @@ class MainWindow(QtWid.QWidget):
 
         vbox = QtWid.QVBoxLayout(self)
         vbox.addLayout(hbox_top, stretch=0)
-        vbox.addSpacerItem(QtWid.QSpacerItem(0, 20))
+        vbox.addSpacerItem(QtWid.QSpacerItem(0, 10))
         vbox.addLayout(hbox_bot, stretch=1)
 
     # --------------------------------------------------------------------------
@@ -434,9 +437,11 @@ if __name__ == "__main__":
     #   Create application and main window
     # --------------------------------------------------------------------------
 
-    app = 0  # Work-around for kernel crash when using Spyder IDE
     app = QtWid.QApplication(sys.argv)
     app.aboutToQuit.connect(about_to_quit)
+
+    # Width in pixels of character 'm' in the current font
+    em = app.fontMetrics().widthChar("m")
 
     window = MainWindow()
 
