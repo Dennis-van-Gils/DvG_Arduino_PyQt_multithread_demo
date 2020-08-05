@@ -8,7 +8,7 @@ __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
 __date__ = "05-08-2020"
 __version__ = "7.0"
-# pylint: disable=bare-except, broad-except
+# pylint: disable=bare-except, broad-except, unnecessary-lambda
 
 import os
 import sys
@@ -24,6 +24,7 @@ import pyqtgraph as pg
 
 from dvg_debug_functions import tprint, dprint, print_fancy_traceback as pft
 from dvg_pyqtgraph_threadsafe import HistoryChartCurve
+from dvg_pyqt_filelogger import FileLogger
 from dvg_pyqt_controls import (
     create_Toggle_button,
     SS_TEXTBOX_READ_ONLY,
@@ -33,7 +34,6 @@ from dvg_pyqt_controls import (
 from dvg_devices.Arduino_protocol_serial import Arduino
 from dvg_qdeviceio import QDeviceIO
 
-from DvG_pyqt_FileLogger import FileLogger
 
 try:
     import OpenGL.GL as gl  # pylint: disable=unused-import
@@ -57,6 +57,9 @@ CHART_INTERVAL_MS  = 20  # 20 [ms]
 CHART_HISTORY_TIME = 10  # 10 [s]
 LARGE_TEXT = False       # For demonstration on a beamer
 # fmt: on
+
+# Use Arduino time or PC time?
+use_PC_time = True
 
 # Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
 DEBUG = False
@@ -138,7 +141,7 @@ class MainWindow(QtWid.QWidget):
         self.qpbt_record = create_Toggle_button(
             "Click to start recording to file"
         )
-        self.qpbt_record.clicked.connect(self.process_qpbt_record)
+        self.qpbt_record.clicked.connect(lambda state: log.record(state))
 
         vbox_middle = QtWid.QVBoxLayout()
         vbox_middle.addWidget(self.qlbl_title)
@@ -283,17 +286,6 @@ class MainWindow(QtWid.QWidget):
             self.history_chart_curve.clear()
 
     @QtCore.pyqtSlot()
-    def process_qpbt_record(self):
-        if self.qpbt_record.isChecked():
-            file_logger.starting = True
-        else:
-            file_logger.stopping = True
-
-    @QtCore.pyqtSlot(str)
-    def set_text_qpbt_record(self, text_str):
-        self.qpbt_record.setText(text_str)
-
-    @QtCore.pyqtSlot()
     def process_qpbt_wave_sine(self):
         qdev_ard.send(ard.write, "sine")
 
@@ -334,7 +326,7 @@ class MainWindow(QtWid.QWidget):
 def stop_running():
     app.processEvents()
     qdev_ard.quit()
-    file_logger.close_log()
+    log.close()
 
     print("Stopping timers: ", end="")
     timer_chart.stop()
@@ -345,7 +337,7 @@ def stop_running():
 def notify_connection_lost():
     stop_running()
 
-    window.qlbl_title.setText("    ! ! !    LOST CONNECTION    ! ! !    ")
+    window.qlbl_title.setText("! ! !    LOST CONNECTION    ! ! !")
     str_cur_date, str_cur_time, _ = get_current_date_time()
     str_msg = "%s %s\nLost connection to Arduino." % (
         str_cur_date,
@@ -397,8 +389,6 @@ def DAQ_function():
         )
         return False
 
-    # Use Arduino time or PC time?
-    use_PC_time = True
     if use_PC_time:
         state.time = time.perf_counter()
 
@@ -406,25 +396,23 @@ def DAQ_function():
     window.history_chart_curve.appendData(state.time, state.reading_1)
 
     # Logging to file
-    if file_logger.starting:
-        fn_log = str_cur_datetime + ".txt"
-        if file_logger.create_log(state.time, fn_log, mode="w"):
-            file_logger.signal_set_recording_text.emit(
-                "Recording to file: " + fn_log
-            )
-            file_logger.write("elapsed [s]\treading_1\n")
+    log.update(filepath=str_cur_datetime + ".txt")
 
-    if file_logger.stopping:
-        file_logger.signal_set_recording_text.emit(
-            "Click to start recording to file"
-        )
-        file_logger.close_log()
-
-    if file_logger.is_recording:
-        log_elapsed_time = state.time - file_logger.start_time
-        file_logger.write("%.3f\t%.4f\n" % (log_elapsed_time, state.reading_1))
-
+    # Return success
     return True
+
+
+def write_header_to_log():
+    log.write("elapsed [s]\treading_1\n")
+
+
+def write_data_to_log():
+    if use_PC_time:
+        timestamp = log.elapsed()  # Starts at 0 s every recording
+    else:
+        timestamp = state.time  #
+
+    log.write("%.3f\t%.4f\n" % (timestamp, state.reading_1))
 
 
 # ------------------------------------------------------------------------------
@@ -448,9 +436,8 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
 
     ard = Arduino(name="Ard", connect_to_specific_ID="Wave generator")
-
     ard.serial_settings["baudrate"] = 115200
-    ard.auto_connect("last_used_port.txt")
+    ard.auto_connect()
 
     if not (ard.is_alive):
         print("\nCheck connection and try resetting the Arduino.")
@@ -477,8 +464,17 @@ if __name__ == "__main__":
     #   File logger
     # --------------------------------------------------------------------------
 
-    file_logger = FileLogger()
-    file_logger.signal_set_recording_text.connect(window.set_text_qpbt_record)
+    log = FileLogger(
+        write_header_fun=write_header_to_log, write_data_fun=write_data_to_log
+    )
+    log.signal_recording_started.connect(
+        lambda filepath: window.qpbt_record.setText(
+            "Recording to file: %s" % filepath
+        )
+    )
+    log.signal_recording_stopped.connect(
+        lambda: window.qpbt_record.setText("Click to start recording to file")
+    )
 
     # --------------------------------------------------------------------------
     #   Set up multithreaded communication with the Arduino
