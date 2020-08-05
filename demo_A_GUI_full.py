@@ -204,13 +204,20 @@ class MainWindow(QtWid.QWidget):
         p = {"readOnly": True, "maximumWidth": 7 * em}
         self.qlin_reading_t = QtWid.QLineEdit(**p)
         self.qlin_reading_1 = QtWid.QLineEdit(**p)
+        self.qpbt_running = create_Toggle_button("Running", checked=True)
+        self.qpbt_running.clicked.connect(
+            lambda state: self.qpbt_running.setText(
+                "Running" if state else "Run"
+            )
+        )
 
         # fmt: off
         grid = QtWid.QGridLayout()
-        grid.addWidget(QtWid.QLabel("time"), 0, 0)
-        grid.addWidget(self.qlin_reading_t , 0, 1)
-        grid.addWidget(QtWid.QLabel("#01") , 1, 0)
-        grid.addWidget(self.qlin_reading_1 , 1, 1)
+        grid.addWidget(self.qpbt_running   , 0, 0, 1, 2)
+        grid.addWidget(QtWid.QLabel("time"), 1, 0)
+        grid.addWidget(self.qlin_reading_t , 1, 1)
+        grid.addWidget(QtWid.QLabel("#01") , 2, 0)
+        grid.addWidget(self.qlin_reading_1 , 2, 1)
         grid.setAlignment(QtCore.Qt.AlignTop)
         # fmt: on
 
@@ -496,6 +503,14 @@ if __name__ == "__main__":
     qdev_ard.signal_DAQ_updated.connect(window.update_GUI)
     qdev_ard.signal_connection_lost.connect(notify_connection_lost)
 
+    # Hack. TODO: Implement start/stop in `QDeviceIO`
+    def start_stop():
+        qdev_ard.worker_DAQ.DAQ_function = (
+            DAQ_function if window.qpbt_running.isChecked() else None
+        )
+
+    window.qpbt_running.clicked.connect(start_stop)
+
     # Start workers
     qdev_ard.start(DAQ_priority=QtCore.QThread.TimeCriticalPriority)
 
@@ -512,5 +527,4 @@ if __name__ == "__main__":
     #   Start the main GUI event loop
     # --------------------------------------------------------------------------
     window.show()
-    # print(window.qlin_reading_1.fontMetrics().widthChar("x"))
     sys.exit(app.exec_())
