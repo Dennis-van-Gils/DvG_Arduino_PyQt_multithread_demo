@@ -45,8 +45,9 @@ __version__ = "1.0.0"
 # NOTE: Module will struggle on by design when exceptions occur. They are only
 # reported to the command line and the module will continue on.
 
-from pathlib import Path
 from typing import AnyStr, Callable
+from pathlib import Path
+import datetime
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import QDateTime
@@ -124,6 +125,9 @@ class FileLogger(QtCore.QObject):
         self._start = False
         self._stop = True
 
+    def is_recording(self) -> bool:
+        return self._is_recording
+
     def update(self, filepath: str == "", mode: str = "a"):
         """
             mode (str):
@@ -171,6 +175,12 @@ class FileLogger(QtCore.QObject):
         Returns time in seconds since start of recording.
         """
         return self._timer.elapsed() / 1e3
+
+    def pretty_elapsed(self) -> str:
+        """
+        Returns time as "h:mm:ss" since start of recording.
+        """
+        return str(datetime.timedelta(seconds=int(self.elapsed())))
 
     def _create_log(self) -> bool:
         """Open new log file and keep file handle open.

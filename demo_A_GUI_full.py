@@ -152,10 +152,12 @@ class MainWindow(QtWid.QWidget):
         self.qpbt_exit = QtWid.QPushButton("Exit")
         self.qpbt_exit.clicked.connect(self.close)
         self.qpbt_exit.setMinimumHeight(30)
+        self.qlbl_recording_time = QtWid.QLabel(alignment=QtCore.Qt.AlignRight)
 
         vbox_right = QtWid.QVBoxLayout()
         vbox_right.addWidget(self.qpbt_exit, stretch=0)
         vbox_right.addStretch(1)
+        vbox_right.addWidget(self.qlbl_recording_time, stretch=0)
 
         # Round up top frame
         hbox_top = QtWid.QHBoxLayout()
@@ -314,6 +316,8 @@ class MainWindow(QtWid.QWidget):
         self.qlbl_DAQ_rate.setText(
             "DAQ: %.1f Hz" % qdev_ard.obtained_DAQ_rate_Hz
         )
+        if log.is_recording():
+            self.qlbl_recording_time.setText(log.pretty_elapsed())
         self.qlin_reading_t.setText("%.3f" % state.time)
         self.qlin_reading_1.setText("%.4f" % state.reading_1)
 
