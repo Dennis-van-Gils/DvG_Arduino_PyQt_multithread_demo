@@ -30,6 +30,7 @@ import pyqtgraph as pg
 
 from dvg_debug_functions import tprint, dprint, print_fancy_traceback as pft
 from dvg_pyqtgraph_threadsafe import HistoryChartCurve
+from dvg_pyqt_filelogger import FileLogger
 from dvg_pyqt_controls import (
     create_Toggle_button,
     SS_TEXTBOX_READ_ONLY,
@@ -38,7 +39,6 @@ from dvg_pyqt_controls import (
 
 from dvg_devices.Arduino_protocol_serial import Arduino
 
-from DvG_pyqt_FileLogger import FileLogger
 
 try:
     import OpenGL.GL as gl  # pylint: disable=unused-import
@@ -61,6 +61,9 @@ DAQ_INTERVAL_MS    = 10  # 10 [ms]
 CHART_INTERVAL_MS  = 20  # 20 [ms]
 CHART_HISTORY_TIME = 10  # 10 [s]
 # fmt: on
+
+# Use Arduino time or PC time?
+use_PC_time = True
 
 # Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
 DEBUG = False
@@ -136,7 +139,7 @@ class MainWindow(QtWid.QWidget):
         self.qpbt_record = create_Toggle_button(
             "Click to start recording to file"
         )
-        self.qpbt_record.clicked.connect(self.process_qpbt_record)
+        self.qpbt_record.clicked.connect(lambda state: log.record(state))
 
         vbox_middle = QtWid.QVBoxLayout()
         vbox_middle.addWidget(self.qlbl_title)
@@ -189,13 +192,20 @@ class MainWindow(QtWid.QWidget):
         p = {"readOnly": True, "maximumWidth": 7 * em}
         self.qlin_reading_t = QtWid.QLineEdit(**p)
         self.qlin_reading_1 = QtWid.QLineEdit(**p)
+        self.qpbt_running = create_Toggle_button("Running", checked=True)
+        self.qpbt_running.clicked.connect(
+            lambda state: self.qpbt_running.setText(
+                "Running" if state else "Run"
+            )
+        )
 
         # fmt: off
         grid = QtWid.QGridLayout()
-        grid.addWidget(QtWid.QLabel("time"), 0, 0)
-        grid.addWidget(self.qlin_reading_t , 0, 1)
-        grid.addWidget(QtWid.QLabel("#01") , 1, 0)
-        grid.addWidget(self.qlin_reading_1 , 1, 1)
+        grid.addWidget(self.qpbt_running   , 0, 0, 1, 2)
+        grid.addWidget(QtWid.QLabel("time"), 1, 0)
+        grid.addWidget(self.qlin_reading_t , 1, 1)
+        grid.addWidget(QtWid.QLabel("#01") , 2, 0)
+        grid.addWidget(self.qlin_reading_1 , 2, 1)
         grid.setAlignment(QtCore.Qt.AlignTop)
         # fmt: on
 
@@ -271,13 +281,6 @@ class MainWindow(QtWid.QWidget):
             self.history_chart_curve.clear()
 
     @QtCore.pyqtSlot()
-    def process_qpbt_record(self):
-        if self.qpbt_record.isChecked():
-            file_logger.starting = True
-        else:
-            file_logger.stopping = True
-
-    @QtCore.pyqtSlot()
     def process_qpbt_wave_sine(self):
         ard.write("sine")
 
@@ -317,7 +320,7 @@ class MainWindow(QtWid.QWidget):
 def about_to_quit():
     print("\nAbout to quit")
     app.processEvents()
-    file_logger.close_log()
+    log.close()
 
     print("Stopping timers: ", end="")
     timer_chart.stop()
@@ -376,8 +379,6 @@ def DAQ_function():
         )
         sys.exit(0)
 
-    # Use Arduino time or PC time?
-    use_PC_time = True
     if use_PC_time:
         state.time = time.perf_counter()
 
@@ -385,22 +386,23 @@ def DAQ_function():
     window.history_chart_curve.appendData(state.time, state.reading_1)
 
     # Logging to file
-    if file_logger.starting:
-        fn_log = str_cur_datetime + ".txt"
-        if file_logger.create_log(state.time, fn_log, mode="w"):
-            window.qpbt_record.setText("Recording to file: " + fn_log)
-            file_logger.write("elapsed [s]\treading_1\n")
-
-    if file_logger.stopping:
-        window.qpbt_record.setText("Click to start recording to file")
-        file_logger.close_log()
-
-    if file_logger.is_recording:
-        log_elapsed_time = state.time - file_logger.start_time
-        file_logger.write("%.3f\t%.4f\n" % (log_elapsed_time, state.reading_1))
+    log.update(filepath=str_cur_datetime + ".txt")
 
     # We update the GUI right now because this is a singlethread demo
     window.update_GUI()
+
+
+def write_header_to_log():
+    log.write("elapsed [s]\treading_1\n")
+
+
+def write_data_to_log():
+    if use_PC_time:
+        timestamp = log.elapsed()  # Starts at 0 s every recording
+    else:
+        timestamp = state.time
+
+    log.write("%.3f\t%.4f\n" % (timestamp, state.reading_1))
 
 
 # ------------------------------------------------------------------------------
@@ -424,7 +426,6 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
 
     ard = Arduino(name="Ard", connect_to_specific_ID="Wave generator")
-
     ard.serial_settings["baudrate"] = 115200
     ard.auto_connect("last_used_port.txt")
 
@@ -449,7 +450,17 @@ if __name__ == "__main__":
     #   File logger
     # --------------------------------------------------------------------------
 
-    file_logger = FileLogger()
+    log = FileLogger(
+        write_header_fun=write_header_to_log, write_data_fun=write_data_to_log
+    )
+    log.signal_recording_started.connect(
+        lambda filepath: window.qpbt_record.setText(
+            "Recording to file: %s" % filepath
+        )
+    )
+    log.signal_recording_stopped.connect(
+        lambda: window.qpbt_record.setText("Click to start recording to file")
+    )
 
     # --------------------------------------------------------------------------
     #   Create timers
@@ -459,6 +470,10 @@ if __name__ == "__main__":
     timer_state.timeout.connect(DAQ_function)
     timer_state.setTimerType(QtCore.Qt.PreciseTimer)
     timer_state.start(DAQ_INTERVAL_MS)
+
+    window.qpbt_running.clicked.connect(
+        lambda state: timer_state.start() if state else timer_state.stop()
+    )
 
     timer_chart = QtCore.QTimer()
     # timer_chart.setTimerType(QtCore.Qt.PreciseTimer)

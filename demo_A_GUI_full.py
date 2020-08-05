@@ -417,7 +417,7 @@ def write_data_to_log():
     if use_PC_time:
         timestamp = log.elapsed()  # Starts at 0 s every recording
     else:
-        timestamp = state.time  #
+        timestamp = state.time
 
     log.write("%.3f\t%.4f\n" % (timestamp, state.reading_1))
 
