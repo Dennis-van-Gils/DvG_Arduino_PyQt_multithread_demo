@@ -205,7 +205,7 @@ if __name__ == "__main__":
     ard = Arduino(name="Ard", connect_to_specific_ID="Wave generator")
 
     ard.serial_settings["baudrate"] = 115200
-    ard.auto_connect("last_used_port.txt")
+    ard.auto_connect()
 
     if not (ard.is_alive):
         print("\nCheck connection and try resetting the Arduino.")
