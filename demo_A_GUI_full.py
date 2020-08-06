@@ -31,6 +31,7 @@ from dvg_pyqt_controls import (
     SS_GROUP,
 )
 
+from dvg_fakearduino import FakeArduino
 from dvg_devices.Arduino_protocol_serial import Arduino
 from dvg_qdeviceio import QDeviceIO
 
@@ -55,11 +56,12 @@ pg.setConfigOption("foreground", "#EEE")
 DAQ_INTERVAL_MS    = 10  # 10 [ms]
 CHART_INTERVAL_MS  = 20  # 20 [ms]
 CHART_HISTORY_TIME = 10  # 10 [s]
-LARGE_TEXT = False       # For demonstration on a beamer
 # fmt: on
 
-# Use Arduino time or PC time?
-use_PC_time = True
+# Global flags
+SIMULATE_ARDUINO = True  # Simulate an Arduino, instead?
+USE_LARGER_TEXT = False  # For demonstration on a beamer
+USE_PC_TIME = True  # Use Arduino time or PC time?
 
 # Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
 DEBUG = False
@@ -109,7 +111,7 @@ class MainWindow(QtWid.QWidget):
         self.setWindowTitle("Arduino & PyQt multithread demo")
         self.setStyleSheet(SS_TEXTBOX_READ_ONLY + SS_GROUP)
 
-        if LARGE_TEXT:
+        if USE_LARGER_TEXT:
             self.setGeometry(50, 50, 1024, 768)
         else:
             self.setGeometry(350, 50, 800, 660)
@@ -132,7 +134,9 @@ class MainWindow(QtWid.QWidget):
         self.qlbl_title = QtWid.QLabel(
             "Arduino & PyQt multithread demo",
             font=QtGui.QFont(
-                "Palatino", 20 if LARGE_TEXT else 14, weight=QtGui.QFont.Bold
+                "Palatino",
+                20 if USE_LARGER_TEXT else 14,
+                weight=QtGui.QFont.Bold,
             ),
         )
         self.qlbl_title.setAlignment(QtCore.Qt.AlignCenter)
@@ -175,7 +179,10 @@ class MainWindow(QtWid.QWidget):
         self.gw_chart = pg.GraphicsLayoutWidget()
         self.pi_chart = self.gw_chart.addPlot()
 
-        p = {"color": "#EEE", "font-size": "20pt" if LARGE_TEXT else "10pt"}
+        p = {
+            "color": "#EEE",
+            "font-size": "20pt" if USE_LARGER_TEXT else "10pt",
+        }
         self.pi_chart.showGrid(x=1, y=1)
         self.pi_chart.setLabel("bottom", text="history (sec)", **p)
         self.pi_chart.setLabel("left", text="amplitude", **p)
@@ -185,7 +192,7 @@ class MainWindow(QtWid.QWidget):
             disableAutoRange=True,
         )
 
-        if LARGE_TEXT:
+        if USE_LARGER_TEXT:
             font = QtGui.QFont()
             font.setPixelSize(26)
             self.pi_chart.getAxis("bottom").setTickFont(font)
@@ -400,7 +407,7 @@ def DAQ_function():
         )
         return False
 
-    if use_PC_time:
+    if USE_PC_TIME:
         state.time = time.perf_counter()
 
     # Add readings to chart history
@@ -418,7 +425,7 @@ def write_header_to_log():
 
 
 def write_data_to_log():
-    if use_PC_time:
+    if USE_PC_TIME:
         timestamp = log.elapsed()  # Starts at 0 s every recording
     else:
         timestamp = state.time
@@ -446,7 +453,11 @@ if __name__ == "__main__":
     #   Connect to Arduino
     # --------------------------------------------------------------------------
 
-    ard = Arduino(name="Ard", connect_to_specific_ID="Wave generator")
+    if SIMULATE_ARDUINO:
+        ard = FakeArduino()
+    else:
+        ard = Arduino(name="Ard", connect_to_specific_ID="Wave generator")
+
     ard.serial_settings["baudrate"] = 115200
     ard.auto_connect()
 
@@ -463,7 +474,7 @@ if __name__ == "__main__":
     app = QtWid.QApplication(sys.argv)
     app.aboutToQuit.connect(about_to_quit)
 
-    if LARGE_TEXT:
+    if USE_LARGER_TEXT:
         app.setFont(QtGui.QFont(QtWid.QApplication.font().family(), 16))
 
     # Width in pixels of character 'm' in the current font
