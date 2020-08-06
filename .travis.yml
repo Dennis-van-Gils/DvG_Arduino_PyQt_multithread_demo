@@ -26,6 +26,7 @@ before_install:
   pip install -r requirements.txt
   
   sudo apt-get install libxcb-xinerama0
+  sudo ln -sf /usr/lib/x86_64-linux-gnu/qt5/plugins/platforms/ /usr/bin/
   
 script:
   - python demo_A_GUI_full.py simulate
