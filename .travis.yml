@@ -7,6 +7,12 @@ addons:
   apt:
     packages:
       - xvfb
+      - x11-utils
+      - libxkbcommon-x11-0
+
+services: xvfb
+
+dist: xenial
 
 install:
   - export DISPLAY=':99.0'
