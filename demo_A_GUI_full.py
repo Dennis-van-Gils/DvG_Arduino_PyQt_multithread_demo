@@ -59,9 +59,11 @@ CHART_HISTORY_TIME = 10  # 10 [s]
 # fmt: on
 
 # Global flags
-SIMULATE_ARDUINO = True  # Simulate an Arduino, instead?
 USE_LARGER_TEXT = False  # For demonstration on a beamer
 USE_PC_TIME = True  # Use Arduino time or PC time?
+SIMULATE_ARDUINO = False  # Simulate an Arduino, instead?
+if sys.argv[-1] == "simulate":
+    SIMULATE_ARDUINO = True
 
 # Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
 DEBUG = False
