@@ -111,8 +111,8 @@ def DAQ_function():
         return False
 
     # Use Arduino time or PC time?
-    use_PC_time = True
-    now = time.perf_counter() if use_PC_time else state.time
+    USE_PC_TIME = True
+    now = time.perf_counter() if USE_PC_TIME else state.time
     if qdev_ard.update_counter_DAQ == 1:
         state.time_0 = now
         state.time = 0

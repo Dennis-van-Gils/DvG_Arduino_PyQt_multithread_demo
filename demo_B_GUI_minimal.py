@@ -172,8 +172,8 @@ def DAQ_function():
         return False
 
     # Use Arduino time or PC time?
-    use_PC_time = True
-    if use_PC_time:
+    USE_PC_TIME = True
+    if USE_PC_TIME:
         state.time = time.perf_counter()
 
     # Add readings to chart history

@@ -63,7 +63,7 @@ CHART_HISTORY_TIME = 10  # 10 [s]
 # fmt: on
 
 # Use Arduino time or PC time?
-use_PC_time = True
+USE_PC_TIME = True
 
 # Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
 DEBUG = False
@@ -383,7 +383,7 @@ def DAQ_function():
         )
         sys.exit(0)
 
-    if use_PC_time:
+    if USE_PC_TIME:
         state.time = time.perf_counter()
 
     # Add readings to chart histories
@@ -401,7 +401,7 @@ def write_header_to_log():
 
 
 def write_data_to_log():
-    if use_PC_time:
+    if USE_PC_TIME:
         timestamp = log.elapsed()  # Starts at 0 s every recording
     else:
         timestamp = state.time
