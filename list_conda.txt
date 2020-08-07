@@ -28,12 +28,13 @@ docutils                  0.16                     py38_1
 dvg-debug-functions       2.1.1                    pypi_0    pypi
 dvg-devices               0.1.0                    pypi_0    pypi
 dvg-pid-controller        2.0.0                    pypi_0    pypi
-dvg-pyqtgraph-threadsafe  1.0.0                    pypi_0    pypi
+dvg-pyqtgraph-threadsafe  3.0.0                    pypi_0    pypi
 dvg-qdeviceio             0.3.0                    pypi_0    pypi
 dvg-ringbuffer            1.0.1                    pypi_0    pypi
 fftw                      3.3.8           nompi_h24e91a8_1111    conda-forge
 freetype                  2.10.2               hd328e21_0  
 future                    0.18.2                   py38_1  
+h5py                      2.10.0                   pypi_0    pypi
 icc_rt                    2019.0.0             h0cc432a_1  
 icu                       58.2                 ha925a31_3  
 idna                      2.10                       py_0  
@@ -58,6 +59,7 @@ mkl                       2020.1                      216
 mkl-service               2.3.0            py38hb782905_0  
 mkl_fft                   1.1.0            py38h45dec08_0  
 mkl_random                1.1.1            py38h47e9c7a_0  
+mock                      4.0.2                    pypi_0    pypi
 more-itertools            8.4.0                      py_0  
 mypy_extensions           0.4.3                    py38_0  
 numba                     0.50.1           py38h47e9c7a_0  
@@ -90,7 +92,9 @@ pyqtgraph                 0.11.0                     py_0    anaconda
 pyserial                  3.4                        py_2  
 pysocks                   1.7.1                    py38_0  
 pytest                    5.4.3                    py38_0  
+pytest-console-scripts    0.2.0                    pypi_0    pypi
 pytest-cov                2.10.0                     py_0  
+pytest-runner             5.2                      pypi_0    pypi
 python                    3.8.3                he1778fa_2  
 python-dateutil           2.8.1                      py_0  
 python_abi                3.8                      1_cp38    conda-forge
