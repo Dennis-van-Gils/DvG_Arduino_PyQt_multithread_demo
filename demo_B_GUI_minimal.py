@@ -6,7 +6,7 @@ data using PyQt5 and PyQtGraph.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "05-08-2020"
+__date__ = "07-08-2020"
 __version__ = "7.0"
 # pylint: disable=bare-except, broad-except
 
@@ -40,7 +40,7 @@ else:
     pg.setConfigOptions(enableExperimental=True)
 
 # Global pyqtgraph configuration
-pg.setConfigOptions(leftButtonPan=False)
+# pg.setConfigOptions(leftButtonPan=False)
 pg.setConfigOption("foreground", "#EEE")
 
 # Constants
@@ -99,14 +99,15 @@ class MainWindow(QtWid.QWidget):
         self.setGeometry(350, 50, 800, 660)
 
         # GraphicsLayoutWidget
-        self.gw_chart = pg.GraphicsLayoutWidget()
-        self.pi_chart = self.gw_chart.addPlot()
+        self.gw = pg.GraphicsLayoutWidget()
+        self.plot = self.gw.addPlot()
 
         p = {"color": "#EEE", "font-size": "10pt"}
-        self.pi_chart.showGrid(x=1, y=1)
-        self.pi_chart.setLabel("bottom", text="history (sec)", **p)
-        self.pi_chart.setLabel("left", text="amplitude", **p)
-        self.pi_chart.setRange(
+        self.plot.setClipToView(True)
+        self.plot.showGrid(x=1, y=1)
+        self.plot.setLabel("bottom", text="history (sec)", **p)
+        self.plot.setLabel("left", text="amplitude", **p)
+        self.plot.setRange(
             xRange=[-1.04 * CHART_HISTORY_TIME, CHART_HISTORY_TIME * 0.04],
             yRange=[-1.1, 1.1],
             disableAutoRange=True,
@@ -114,13 +115,13 @@ class MainWindow(QtWid.QWidget):
 
         self.history_chart_curve = HistoryChartCurve(
             capacity=round(CHART_HISTORY_TIME * 1e3 / DAQ_INTERVAL_MS),
-            linked_curve=self.pi_chart.plot(
+            linked_curve=self.plot.plot(
                 pen=pg.mkPen(color=[255, 255, 0], width=3)
             ),
         )
 
         vbox = QtWid.QVBoxLayout(self)
-        vbox.addWidget(self.gw_chart, 1)
+        vbox.addWidget(self.gw, 1)
 
 
 # ------------------------------------------------------------------------------

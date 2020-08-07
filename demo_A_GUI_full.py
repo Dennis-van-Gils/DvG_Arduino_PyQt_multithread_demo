@@ -6,7 +6,7 @@ data using PyQt5 and PyQtGraph.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "05-08-2020"
+__date__ = "07-08-2020"
 __version__ = "7.0"
 # pylint: disable=bare-except, broad-except, unnecessary-lambda
 
@@ -23,7 +23,7 @@ from PyQt5.QtCore import QDateTime
 import pyqtgraph as pg
 
 from dvg_debug_functions import tprint, dprint, print_fancy_traceback as pft
-from dvg_pyqtgraph_threadsafe import HistoryChartCurve
+from dvg_pyqtgraph_threadsafe import HistoryChartCurve, PlotManager
 from dvg_pyqt_filelogger import FileLogger
 from dvg_pyqt_controls import (
     create_Toggle_button,
@@ -48,7 +48,7 @@ else:
     pg.setConfigOptions(enableExperimental=True)
 
 # Global pyqtgraph configuration
-pg.setConfigOptions(leftButtonPan=False)
+# pg.setConfigOptions(leftButtonPan=False)
 pg.setConfigOption("foreground", "#EEE")
 
 # Constants
@@ -116,7 +116,7 @@ class MainWindow(QtWid.QWidget):
         if USE_LARGER_TEXT:
             self.setGeometry(50, 50, 1024, 768)
         else:
-            self.setGeometry(350, 50, 800, 660)
+            self.setGeometry(350, 50, 960, 660)
 
         # -------------------------
         #   Top frame
@@ -178,17 +178,18 @@ class MainWindow(QtWid.QWidget):
         # -------------------------
 
         # GraphicsLayoutWidget
-        self.gw_chart = pg.GraphicsLayoutWidget()
-        self.pi_chart = self.gw_chart.addPlot()
+        self.gw = pg.GraphicsLayoutWidget()
+        self.plot = self.gw.addPlot()
 
         p = {
             "color": "#EEE",
             "font-size": "20pt" if USE_LARGER_TEXT else "10pt",
         }
-        self.pi_chart.showGrid(x=1, y=1)
-        self.pi_chart.setLabel("bottom", text="history (sec)", **p)
-        self.pi_chart.setLabel("left", text="amplitude", **p)
-        self.pi_chart.setRange(
+        self.plot.setClipToView(True)
+        self.plot.showGrid(x=1, y=1)
+        self.plot.setLabel("bottom", text="history (sec)", **p)
+        self.plot.setLabel("left", text="amplitude", **p)
+        self.plot.setRange(
             xRange=[-1.04 * CHART_HISTORY_TIME, CHART_HISTORY_TIME * 0.04],
             yRange=[-1.1, 1.1],
             disableAutoRange=True,
@@ -197,16 +198,16 @@ class MainWindow(QtWid.QWidget):
         if USE_LARGER_TEXT:
             font = QtGui.QFont()
             font.setPixelSize(26)
-            self.pi_chart.getAxis("bottom").setTickFont(font)
-            self.pi_chart.getAxis("bottom").setStyle(tickTextOffset=20)
-            self.pi_chart.getAxis("bottom").setHeight(90)
-            self.pi_chart.getAxis("left").setTickFont(font)
-            self.pi_chart.getAxis("left").setStyle(tickTextOffset=20)
-            self.pi_chart.getAxis("left").setWidth(120)
+            self.plot.getAxis("bottom").setTickFont(font)
+            self.plot.getAxis("bottom").setStyle(tickTextOffset=20)
+            self.plot.getAxis("bottom").setHeight(90)
+            self.plot.getAxis("left").setTickFont(font)
+            self.plot.getAxis("left").setStyle(tickTextOffset=20)
+            self.plot.getAxis("left").setWidth(120)
 
         self.history_chart_curve = HistoryChartCurve(
             capacity=round(CHART_HISTORY_TIME * 1e3 / DAQ_INTERVAL_MS),
-            linked_curve=self.pi_chart.plot(
+            linked_curve=self.plot.plot(
                 pen=pg.mkPen(color=[255, 255, 0], width=3)
             ),
         )
@@ -255,15 +256,39 @@ class MainWindow(QtWid.QWidget):
         qgrp_wave_type.setLayout(grid)
 
         # 'Chart'
-        self.qpbt_clear_chart = QtWid.QPushButton("Clear")
-        self.qpbt_clear_chart.clicked.connect(self.process_qpbt_clear_chart)
-
-        grid = QtWid.QGridLayout()
-        grid.addWidget(self.qpbt_clear_chart, 0, 0)
-        grid.setAlignment(QtCore.Qt.AlignTop)
+        self.plot_manager = PlotManager(parent=self)
+        self.plot_manager.add_autorange_buttons(linked_plots=self.plot)
+        self.plot_manager.add_preset_buttons(
+            linked_plots=self.plot,
+            linked_curves=self.history_chart_curve,
+            presets=[
+                {
+                    "button_label": "0.100",
+                    "x_axis_label": "history (msec)",
+                    "x_axis_divisor": 1e-3,
+                    "x_axis_range": (-101, 0),
+                },
+                {
+                    "button_label": "0:05",
+                    "x_axis_label": "history (sec)",
+                    "x_axis_divisor": 1,
+                    "x_axis_range": (-5.05, 0),
+                },
+                {
+                    "button_label": "0:10",
+                    "x_axis_label": "history (sec)",
+                    "x_axis_divisor": 1,
+                    "x_axis_range": (-10.1, 0),
+                },
+            ],
+        )
+        self.plot_manager.add_clear_button(
+            linked_curves=self.history_chart_curve
+        )
+        self.plot_manager.perform_preset(1)
 
         qgrp_chart = QtWid.QGroupBox("Chart")
-        qgrp_chart.setLayout(grid)
+        qgrp_chart.setLayout(self.plot_manager.grid)
 
         vbox = QtWid.QVBoxLayout()
         vbox.addWidget(qgrp_readings)
@@ -273,7 +298,7 @@ class MainWindow(QtWid.QWidget):
 
         # Round up bottom frame
         hbox_bot = QtWid.QHBoxLayout()
-        hbox_bot.addWidget(self.gw_chart, 1)
+        hbox_bot.addWidget(self.gw, 1)
         hbox_bot.addLayout(vbox, 0)
 
         # -------------------------
@@ -288,20 +313,6 @@ class MainWindow(QtWid.QWidget):
     # --------------------------------------------------------------------------
     #   Handle controls
     # --------------------------------------------------------------------------
-
-    @QtCore.pyqtSlot()
-    def process_qpbt_clear_chart(self):
-        str_msg = "Are you sure you want to clear the chart?"
-        reply = QtWid.QMessageBox.warning(
-            window,
-            "Clear chart",
-            str_msg,
-            QtWid.QMessageBox.Yes | QtWid.QMessageBox.No,
-            QtWid.QMessageBox.No,
-        )
-
-        if reply == QtWid.QMessageBox.Yes:
-            self.history_chart_curve.clear()
 
     @QtCore.pyqtSlot()
     def process_qpbt_wave_sine(self):
@@ -532,7 +543,7 @@ if __name__ == "__main__":
     qdev_ard.start(DAQ_priority=QtCore.QThread.TimeCriticalPriority)
 
     # --------------------------------------------------------------------------
-    #   Create chart refresh timer
+    #   Create plot refresh timer
     # --------------------------------------------------------------------------
 
     timer_chart = QtCore.QTimer()
