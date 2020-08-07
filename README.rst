@@ -17,6 +17,8 @@ This demo needs just a bare Arduino(-like) device that, for demonstration purpos
 
 It features a PyQt5 graphical user-interface, with a PyQtGraph plot for fast real-time plotting of data. The main thread handles the GUI and redrawing of the plot, another thread deals with acquiring data from the Arduino at a fixed rate and a third thread maintains a thread-safe queue where messages to be sent out to the Arduino are managed.
 
+.. image:: /images/Arduino_PyQt_demo_with_multithreading.PNG
+
 Other depencies you'll need for this demo can be installed by running::
   
   pip install -r requirements.txt
@@ -30,5 +32,3 @@ Other depencies you'll need for this demo can be installed by running::
 * `NumPy <http://www.numpy.org/>`_
 * `PyQt5 <https://pypi.org/project/PyQt5/>`_
 * `PyQtGraph <http://pyqtgraph.org/>`_
-
-.. image:: /images/Arduino_PyQt_demo_with_multithreading.PNG
