@@ -25,10 +25,11 @@ docutils                      0.16
 dvg-debug-functions           2.1.1
 dvg-devices                   0.1.0
 dvg-pid-controller            2.0.0
-dvg-pyqtgraph-threadsafe      1.0.0
+dvg-pyqtgraph-threadsafe      3.0.0
 dvg-qdeviceio                 0.3.0
 dvg-ringbuffer                1.0.1
 future                        0.18.2
+h5py                          2.10.0
 idna                          2.10
 imagesize                     1.2.0
 ipython                       7.16.1
@@ -45,6 +46,7 @@ mccabe                        0.6.1
 mkl-fft                       1.1.0
 mkl-random                    1.1.1
 mkl-service                   2.3.0
+mock                          4.0.2
 more-itertools                8.4.0
 mypy-extensions               0.4.3
 numba                         0.50.1
@@ -74,7 +76,9 @@ pyqtgraph                     0.11.0
 pyserial                      3.4
 PySocks                       1.7.1
 pytest                        5.4.3
+pytest-console-scripts        0.2.0
 pytest-cov                    2.10.0
+pytest-runner                 5.2
 python-dateutil               2.8.1
 pytz                          2020.1
 PyVISA                        1.10.1
