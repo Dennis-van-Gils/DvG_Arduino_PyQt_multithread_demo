@@ -500,7 +500,8 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
 
     log = FileLogger(
-        write_header_fun=write_header_to_log, write_data_fun=write_data_to_log
+        write_header_function=write_header_to_log,
+        write_data_function=write_data_to_log,
     )
     log.signal_recording_started.connect(
         lambda filepath: window.qpbt_record.setText(
