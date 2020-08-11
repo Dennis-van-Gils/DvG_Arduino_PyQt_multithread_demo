@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Simulates the Arduino communication stream as expected by demo A.
+"""
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
-__url__ = "https://github.com/Dennis-van-Gils/..."
-__date__ = "06-08-2020"
+__url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
+__date__ = "11-08-2020"
 __version__ = "0.0.1"
 # pylint: disable=unused-argument
 
@@ -42,9 +44,6 @@ class FakeArduino:
             wave = 2 * np.mod(self.wave_freq * t, 1.0) - 1
 
         return (True, (t, wave))
-
-    # def query(self, *args, **kwargs) -> tuple:
-    #    return (True, "")
 
     def close(self):
         pass

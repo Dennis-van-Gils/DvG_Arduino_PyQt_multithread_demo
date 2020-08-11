@@ -13,7 +13,7 @@ DvG_Arduino_PyQt_multithread_demo
 
 Demonstration of multithreaded communication, real-time plotting and logging of live Arduino data using PyQt5 and PyQtGraph.
 
-This demo needs just a bare Arduino(-like) device that, for demonstration purposes, will act as a numerical waveform generator. The source files are included and they should compile over a wide range of Arduino boards. Connect the Arduino to any USB port on your computer and run this Python demo. It should automatically find the Arduino and show you a fully functioning GUI with live data at a stable acquisition rate of 100 Hz.
+This demo needs just a bare Arduino(-like) device that, for demonstration purposes, will act as a numerical waveform generator. The source files are included and they should compile over a wide range of Arduino boards. Connect the Arduino to any USB port on your computer and run this Python demo. It should automatically find the Arduino and show you a fully functioning GUI with live data at a stable acquisition rate of 100 Hz. Alternatively, you can simulate the Arduino by running ``python demo_A_GUI_full.py simulate``.
 
 It features a PyQt5 graphical user-interface, with a PyQtGraph plot for fast real-time plotting of data. The main thread handles the GUI and redrawing of the plot, another thread deals with acquiring data from the Arduino at a fixed rate and a third thread maintains a thread-safe queue where messages to be sent out to the Arduino are managed.
 
@@ -24,12 +24,13 @@ Other depencies you'll need for this demo can be installed by running::
   pip install -r requirements.txt
 
 * `dvg-debug-functions <https://pypi.org/project/dvg-debug-functions/>`_
-* `dvg-qdeviceio <https://pypi.org/project/dvg-qdeviceio/>`_
 * `dvg-devices <https://pypi.org/project/dvg-devices/>`_
+* `dvg-pyqt-controls <https://pypi.org/project/dvg-pyqt-controls/>`_
 * `dvg-pyqt-filelogger <https://pypi.org/project/dvg-pyqt-filelogger/>`_
 * `dvg-pyqtgraph-threadsafe <https://pypi.org/project/dvg-pyqtgraph-threadsafe/>`_
-* `psutil <https://pypi.org/project/psutil/>`_
-* `pySerial <https://pypi.org/project/pyserial/>`_
+* `dvg-qdeviceio <https://pypi.org/project/dvg-qdeviceio/>`_
 * `NumPy <http://www.numpy.org/>`_
+* `psutil <https://pypi.org/project/psutil/>`_
 * `PyQt5 <https://pypi.org/project/PyQt5/>`_
 * `PyQtGraph <http://pyqtgraph.org/>`_
+* `pySerial <https://pypi.org/project/pyserial/>`_
