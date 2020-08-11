@@ -5,7 +5,7 @@ pyqt5~=5.12
 pyqtgraph~=0.11
 
 dvg-debug-functions==2.1.1
-dvg-devices==0.1.0
+dvg-devices==0.2.0
 dvg-pyqt-controls==1.0.0
 dvg-pyqt-filelogger==1.0.0
 dvg-pyqtgraph-threadsafe==3.0.1
