@@ -26,6 +26,7 @@ Other depencies you'll need for this demo can be installed by running::
 * `dvg-debug-functions <https://pypi.org/project/dvg-debug-functions/>`_
 * `dvg-qdeviceio <https://pypi.org/project/dvg-qdeviceio/>`_
 * `dvg-devices <https://pypi.org/project/dvg-devices/>`_
+* `dvg-pyqt-filelogger <https://pypi.org/project/dvg-pyqt-filelogger/>`_
 * `dvg-pyqtgraph-threadsafe <https://pypi.org/project/dvg-pyqtgraph-threadsafe/>`_
 * `psutil <https://pypi.org/project/psutil/>`_
 * `pySerial <https://pypi.org/project/pyserial/>`_
