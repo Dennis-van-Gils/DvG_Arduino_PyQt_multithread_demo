@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Simulates the Arduino communication stream as expected by demo A.
+"""Simulates the Arduino communication stream as expected by demo A and C.
 """
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
