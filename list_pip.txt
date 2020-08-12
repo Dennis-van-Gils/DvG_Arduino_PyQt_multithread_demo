@@ -3,7 +3,7 @@ Package                  Version
 certifi                  2020.6.20
 cycler                   0.10.0
 dvg-debug-functions      2.1.1
-dvg-devices              0.1.0
+dvg-devices              0.2.1
 dvg-pid-controller       2.0.0
 dvg-pyqt-controls        1.0.0
 dvg-pyqt-filelogger      1.0.0
