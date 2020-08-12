@@ -1,11 +1,11 @@
-# packages in environment at C:\Users\vangi\anaconda3\envs\py38min:
+# packages in environment at C:\Users\Dennis_van_Gils\anaconda3\envs\py38min:
 #
 # Name                    Version                   Build  Channel
 ca-certificates           2020.6.24                     0  
 certifi                   2020.6.20                py38_0  
 cycler                    0.10.0                   pypi_0    pypi
 dvg-debug-functions       2.1.1                    pypi_0    pypi
-dvg-devices               0.1.0                    pypi_0    pypi
+dvg-devices               0.2.1                    pypi_0    pypi
 dvg-pid-controller        2.0.0                    pypi_0    pypi
 dvg-pyqt-controls         1.0.0                    pypi_0    pypi
 dvg-pyqt-filelogger       1.0.0                    pypi_0    pypi
