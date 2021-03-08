@@ -1,5 +1,5 @@
-.. image:: https://travis-ci.org/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo.svg?branch=master
-    :target: https://travis-ci.org/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo
+.. image:: https://travis-ci.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo.svg?branch=master
+    :target: https://travis-ci.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo
 .. image:: https://requires.io/github/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo/requirements.svg?branch=master
     :target: https://requires.io/github/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo/requirements/?branch=master
     :alt: Requirements Status
