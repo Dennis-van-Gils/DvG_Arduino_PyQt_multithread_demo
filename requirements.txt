@@ -2,11 +2,11 @@ numpy~=1.15
 psutil~=5.6
 pyserial~=3.4
 pyqt5~=5.12
-pyqtgraph~=0.11
+pyqtgraph==0.11
 
-dvg-debug-functions==2.1.1
-dvg-devices~=0.2
-dvg-pyqt-controls==1.0.0
-dvg-pyqt-filelogger==1.0.0
-dvg-pyqtgraph-threadsafe==3.0.1
-dvg-qdeviceio==0.3.0
+dvg-debug-functions~=2.1
+dvg-devices~=1.0
+dvg-pyqt-controls~=1.0
+dvg-pyqt-filelogger~=1.1
+dvg-pyqtgraph-threadsafe~=3.1
+dvg-qdeviceio~=1.0
