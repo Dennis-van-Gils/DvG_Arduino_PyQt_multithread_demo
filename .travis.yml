@@ -8,9 +8,9 @@ python:
 
 env:
   - QTLIB="PyQt5"
-  - QTLIB="PyQt6"
+  # - QTLIB="PyQt6"
   - QTLIB="PySide2"
-  - QTLIB="PySide6"
+  # - QTLIB="PySide6"
 
 addons:
   apt:
