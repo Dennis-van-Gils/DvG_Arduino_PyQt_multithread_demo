@@ -1,0 +1,20 @@
+language: python
+python:
+    - "3.9"
+
+# Cache PlatformIO packages using Travis CI container-based infrastructure
+cache:
+  directories:
+    - "~/.platformio"
+    - $HOME/.cache/pip
+
+env:
+  - PLATFORMIO_CI_SRC=examples/StreamCommand/StreamCommand.ino
+  - PLATFORMIO_CI_SRC=examples/BinaryStreamCommand/BinaryStreamCommand.ino
+
+install:
+  - pip install -U platformio
+  - pio update
+
+script:
+  - pio ci --lib="." --project-conf=platformio.ini

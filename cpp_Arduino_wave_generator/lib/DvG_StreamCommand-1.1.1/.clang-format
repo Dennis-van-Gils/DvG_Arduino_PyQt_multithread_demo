@@ -1,0 +1,1 @@
+{ BasedOnStyle: LLVM, UseTab: Never, IndentWidth: 2, TabWidth: 2, BreakBeforeBraces: Attach, AllowShortBlocksOnASingleLine: Empty, AllowShortIfStatementsOnASingleLine: true, IndentCaseLabels: true, ColumnLimit: 80, AccessModifierOffset: -2, NamespaceIndentation: All, IndentPPDirectives: AfterHash}
