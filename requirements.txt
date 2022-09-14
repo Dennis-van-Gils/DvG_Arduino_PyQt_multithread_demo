@@ -1,15 +1,12 @@
 numpy~=1.15
 psutil~=5.6
 pyserial~=3.4
-pyqt5~=5.12
 pyopengl~=3.1
+pyqtgraph~=0.11
 
-# Fix pyqtgraph version to 0.11.1, because 0.12 breaks OpenGL support
-pyqtgraph==0.11.1  # rq.filter: ==0.11.1
-
-dvg-debug-functions~=2.1
-dvg-devices~=1.0
-dvg-pyqt-controls~=1.0
-dvg-pyqt-filelogger~=1.1
-dvg-pyqtgraph-threadsafe~=3.1
-dvg-qdeviceio~=1.0
+dvg-debug-functions~=2.2
+dvg-devices~=1.2
+dvg-pyqt-controls~=1.2
+dvg-pyqt-filelogger~=1.2
+dvg-pyqtgraph-threadsafe~=3.2
+dvg-qdeviceio~=1.1

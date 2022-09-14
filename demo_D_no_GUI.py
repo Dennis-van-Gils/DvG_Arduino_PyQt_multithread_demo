@@ -7,18 +7,70 @@
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "03-08-2020"
-__version__ = "7.0"
+__date__ = "14-09-2022"
+__version__ = "8.0"
 # pylint: disable=bare-except, broad-except
 
-import os
-import sys
 import time
 import signal  # To catch CTRL+C and quit
 
+# Mechanism to support both PyQt and PySide
+# -----------------------------------------
+import os
+import sys
+
+QT_LIB = os.getenv("PYQTGRAPH_QT_LIB")
+PYSIDE = "PySide"
+PYSIDE2 = "PySide2"
+PYSIDE6 = "PySide6"
+PYQT4 = "PyQt4"
+PYQT5 = "PyQt5"
+PYQT6 = "PyQt6"
+
+# pylint: disable=import-error, no-name-in-module
+# fmt: off
+if QT_LIB is None:
+    libOrder = [PYQT5, PYSIDE2, PYSIDE6, PYQT6]
+    for lib in libOrder:
+        if lib in sys.modules:
+            QT_LIB = lib
+            break
+
+if QT_LIB is None:
+    for lib in libOrder:
+        try:
+            __import__(lib)
+            QT_LIB = lib
+            break
+        except ImportError:
+            pass
+
+if QT_LIB is None:
+    raise Exception(
+        "demo_D_no_GUI requires PyQt5, PyQt6, PySide2 or PySide6; "
+        "none of these packages could be imported."
+    )
+
+if QT_LIB == PYQT5:
+    from PyQt5 import QtCore                               # type: ignore
+    from PyQt5.QtCore import pyqtSlot as Slot              # type: ignore
+elif QT_LIB == PYQT6:
+    from PyQt6 import QtCore                               # type: ignore
+    from PyQt6.QtCore import pyqtSlot as Slot              # type: ignore
+elif QT_LIB == PYSIDE2:
+    from PySide2 import QtCore                             # type: ignore
+    from PySide2.QtCore import Slot                        # type: ignore
+elif QT_LIB == PYSIDE6:
+    from PySide6 import QtCore                             # type: ignore
+    from PySide6.QtCore import Slot                        # type: ignore
+
+# fmt: on
+# pylint: enable=import-error, no-name-in-module
+# \end[Mechanism to support both PyQt and PySide]
+# -----------------------------------------------
+
 import psutil
 
-from PyQt5 import QtCore
 from dvg_debug_functions import dprint, print_fancy_traceback as pft
 
 from dvg_devices.Arduino_protocol_serial import Arduino
@@ -59,13 +111,13 @@ def keyboardInterruptHandler(keysig, frame):  # pylint: disable=unused-argument
     app.quit()
 
 
-@QtCore.pyqtSlot()
+@Slot()
 def notify_connection_lost():
     print("\nCRITICAL ERROR: Lost connection to Arduino.")
     app.quit()
 
 
-@QtCore.pyqtSlot()
+@Slot()
 def about_to_quit():
     print("\nAbout to quit")
     qdev_ard.quit()
@@ -77,7 +129,7 @@ def about_to_quit():
 # ------------------------------------------------------------------------------
 
 
-@QtCore.pyqtSlot()
+@Slot()
 def update_terminal():
     print(
         "%i\t%.3f\t%.4f"
@@ -182,7 +234,7 @@ if __name__ == "__main__":
     qdev_ard.signal_connection_lost.connect(notify_connection_lost)
 
     # Start workers
-    qdev_ard.start(DAQ_priority=QtCore.QThread.TimeCriticalPriority)
+    qdev_ard.start(DAQ_priority=QtCore.QThread.Priority.TimeCriticalPriority)
 
     # --------------------------------------------------------------------------
     #   Start the main event loop
@@ -191,4 +243,7 @@ if __name__ == "__main__":
     # Catch CTRL+C
     signal.signal(signal.SIGINT, keyboardInterruptHandler)
 
-    sys.exit(app.exec_())
+    if QT_LIB in (PYQT5, PYSIDE2):
+        sys.exit(app.exec_())
+    else:
+        sys.exit(app.exec())

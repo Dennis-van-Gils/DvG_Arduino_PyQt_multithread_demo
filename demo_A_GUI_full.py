@@ -1,25 +1,74 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Demonstration of multithreaded real-time plotting and logging of live Arduino
-data using PyQt5 and PyQtGraph.
+data using PyQt/PySide and PyQtGraph.
 """
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "07-08-2020"
-__version__ = "7.0"
+__date__ = "14-09-2022"
+__version__ = "8.0"
 # pylint: disable=bare-except, broad-except, unnecessary-lambda
 
-import os
-import sys
 import time
 
-import numpy as np
-import psutil
+# Mechanism to support both PyQt and PySide
+# -----------------------------------------
+import os
+import sys
 
-from PyQt5 import QtCore, QtGui
-from PyQt5 import QtWidgets as QtWid
-from PyQt5.QtCore import QDateTime
+QT_LIB = os.getenv("PYQTGRAPH_QT_LIB")
+PYSIDE = "PySide"
+PYSIDE2 = "PySide2"
+PYSIDE6 = "PySide6"
+PYQT4 = "PyQt4"
+PYQT5 = "PyQt5"
+PYQT6 = "PyQt6"
+
+# pylint: disable=import-error, no-name-in-module
+# fmt: off
+if QT_LIB is None:
+    libOrder = [PYQT5, PYSIDE2, PYSIDE6, PYQT6]
+    for lib in libOrder:
+        if lib in sys.modules:
+            QT_LIB = lib
+            break
+
+if QT_LIB is None:
+    for lib in libOrder:
+        try:
+            __import__(lib)
+            QT_LIB = lib
+            break
+        except ImportError:
+            pass
+
+if QT_LIB is None:
+    raise Exception(
+        "demo_A_GUI_full requires PyQt5, PyQt6, PySide2 or PySide6; "
+        "none of these packages could be imported."
+    )
+
+if QT_LIB == PYQT5:
+    from PyQt5 import QtCore, QtGui, QtWidgets as QtWid    # type: ignore
+    from PyQt5.QtCore import pyqtSlot as Slot              # type: ignore
+elif QT_LIB == PYQT6:
+    from PyQt6 import QtCore, QtGui, QtWidgets as QtWid    # type: ignore
+    from PyQt6.QtCore import pyqtSlot as Slot              # type: ignore
+elif QT_LIB == PYSIDE2:
+    from PySide2 import QtCore, QtGui, QtWidgets as QtWid  # type: ignore
+    from PySide2.QtCore import Slot                        # type: ignore
+elif QT_LIB == PYSIDE6:
+    from PySide6 import QtCore, QtGui, QtWidgets as QtWid  # type: ignore
+    from PySide6.QtCore import Slot                        # type: ignore
+
+# fmt: on
+# pylint: enable=import-error, no-name-in-module
+# \end[Mechanism to support both PyQt and PySide]
+# -----------------------------------------------
+
+import psutil
+import numpy as np
 import pyqtgraph as pg
 
 from dvg_debug_functions import tprint, dprint, print_fancy_traceback as pft
@@ -70,7 +119,7 @@ DEBUG = False
 
 
 def get_current_date_time():
-    cur_date_time = QDateTime.currentDateTime()
+    cur_date_time = QtCore.QDateTime.currentDateTime()
     return (
         cur_date_time.toString("dd-MM-yyyy"),  # Date
         cur_date_time.toString("HH:mm:ss"),  # Time
@@ -138,12 +187,14 @@ class MainWindow(QtWid.QWidget):
             font=QtGui.QFont(
                 "Palatino",
                 20 if USE_LARGER_TEXT else 14,
-                weight=QtGui.QFont.Bold,
+                weight=QtGui.QFont.Weight.Bold,
             ),
         )
-        self.qlbl_title.setAlignment(QtCore.Qt.AlignCenter)
+        self.qlbl_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.qlbl_cur_date_time = QtWid.QLabel("00-00-0000    00:00:00")
-        self.qlbl_cur_date_time.setAlignment(QtCore.Qt.AlignCenter)
+        self.qlbl_cur_date_time.setAlignment(
+            QtCore.Qt.AlignmentFlag.AlignCenter
+        )
         self.qpbt_record = create_Toggle_button(
             "Click to start recording to file"
         )
@@ -158,7 +209,9 @@ class MainWindow(QtWid.QWidget):
         self.qpbt_exit = QtWid.QPushButton("Exit")
         self.qpbt_exit.clicked.connect(self.close)
         self.qpbt_exit.setMinimumHeight(30)
-        self.qlbl_recording_time = QtWid.QLabel(alignment=QtCore.Qt.AlignRight)
+        self.qlbl_recording_time = QtWid.QLabel(
+            alignment=QtCore.Qt.AlignmentFlag.AlignRight
+        )
 
         vbox_right = QtWid.QVBoxLayout()
         vbox_right.addWidget(self.qpbt_exit, stretch=0)
@@ -213,7 +266,7 @@ class MainWindow(QtWid.QWidget):
         )
 
         # 'Readings'
-        p = {"readOnly": True, "maximumWidth": 7 * em}
+        p = {"readOnly": True, "maximumWidth": 112 if USE_LARGER_TEXT else 63}
         self.qlin_reading_t = QtWid.QLineEdit(**p)
         self.qlin_reading_1 = QtWid.QLineEdit(**p)
         self.qpbt_running = create_Toggle_button("Running", checked=True)
@@ -230,7 +283,7 @@ class MainWindow(QtWid.QWidget):
         grid.addWidget(self.qlin_reading_t , 1, 1)
         grid.addWidget(QtWid.QLabel("#01") , 2, 0)
         grid.addWidget(self.qlin_reading_1 , 2, 1)
-        grid.setAlignment(QtCore.Qt.AlignTop)
+        grid.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
         # fmt: on
 
         qgrp_readings = QtWid.QGroupBox("Readings")
@@ -249,7 +302,7 @@ class MainWindow(QtWid.QWidget):
         grid.addWidget(self.qpbt_wave_sine    , 0, 0)
         grid.addWidget(self.qpbt_wave_square  , 1, 0)
         grid.addWidget(self.qpbt_wave_sawtooth, 2, 0)
-        grid.setAlignment(QtCore.Qt.AlignTop)
+        grid.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
         # fmt: on
 
         qgrp_wave_type = QtWid.QGroupBox("Wave type")
@@ -314,19 +367,19 @@ class MainWindow(QtWid.QWidget):
     #   Handle controls
     # --------------------------------------------------------------------------
 
-    @QtCore.pyqtSlot()
+    @Slot()
     def process_qpbt_wave_sine(self):
         qdev_ard.send(ard.write, "sine")
 
-    @QtCore.pyqtSlot()
+    @Slot()
     def process_qpbt_wave_square(self):
         qdev_ard.send(ard.write, "square")
 
-    @QtCore.pyqtSlot()
+    @Slot()
     def process_qpbt_wave_sawtooth(self):
         qdev_ard.send(ard.write, "sawtooth")
 
-    @QtCore.pyqtSlot()
+    @Slot()
     def update_GUI(self):
         str_cur_date, str_cur_time, _ = get_current_date_time()
         self.qlbl_cur_date_time.setText(
@@ -341,7 +394,7 @@ class MainWindow(QtWid.QWidget):
         self.qlin_reading_t.setText("%.3f" % state.time)
         self.qlin_reading_1.setText("%.4f" % state.reading_1)
 
-    @QtCore.pyqtSlot()
+    @Slot()
     def update_chart(self):
         if DEBUG:
             tprint("update_curve")
@@ -364,7 +417,7 @@ def stop_running():
     print("done.")
 
 
-@QtCore.pyqtSlot()
+@Slot()
 def notify_connection_lost():
     stop_running()
 
@@ -383,7 +436,7 @@ def notify_connection_lost():
         pass  # Leave the GUI open for read-only inspection by the user
 
 
-@QtCore.pyqtSlot()
+@Slot()
 def about_to_quit():
     print("\nAbout to quit")
     stop_running()
@@ -490,9 +543,6 @@ if __name__ == "__main__":
     if USE_LARGER_TEXT:
         app.setFont(QtGui.QFont(QtWid.QApplication.font().family(), 16))
 
-    # Width in pixels of character 'm' in the current font
-    em = app.fontMetrics().widthChar("m")
-
     window = MainWindow()
 
     # --------------------------------------------------------------------------
@@ -541,14 +591,14 @@ if __name__ == "__main__":
     window.qpbt_running.clicked.connect(start_stop)
 
     # Start workers
-    qdev_ard.start(DAQ_priority=QtCore.QThread.TimeCriticalPriority)
+    qdev_ard.start(DAQ_priority=QtCore.QThread.Priority.TimeCriticalPriority)
 
     # --------------------------------------------------------------------------
     #   Create plot refresh timer
     # --------------------------------------------------------------------------
 
     timer_chart = QtCore.QTimer()
-    # timer_chart.setTimerType(QtCore.Qt.PreciseTimer)
+    timer_chart.setTimerType(QtCore.Qt.TimerType.PreciseTimer)
     timer_chart.timeout.connect(window.update_chart)
     timer_chart.start(CHART_INTERVAL_MS)
 
@@ -556,4 +606,7 @@ if __name__ == "__main__":
     #   Start the main GUI event loop
     # --------------------------------------------------------------------------
     window.show()
-    sys.exit(app.exec_())
+    if QT_LIB in (PYQT5, PYSIDE2):
+        sys.exit(app.exec_())
+    else:
+        sys.exit(app.exec())

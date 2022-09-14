@@ -1,25 +1,74 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Demonstration of multithreaded real-time plotting and logging of live Arduino
-data using PyQt5 and PyQtGraph.
+data using PyQt/PySide and PyQtGraph.
 """
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "07-08-2020"
-__version__ = "7.0"
+__date__ = "14-09-2022"
+__version__ = "8.0"
 # pylint: disable=bare-except, broad-except
 
-import os
-import sys
 import time
 
-import numpy as np
-import psutil
+# Mechanism to support both PyQt and PySide
+# -----------------------------------------
+import os
+import sys
 
-from PyQt5 import QtCore
-from PyQt5 import QtWidgets as QtWid
-from PyQt5.QtCore import QDateTime
+QT_LIB = os.getenv("PYQTGRAPH_QT_LIB")
+PYSIDE = "PySide"
+PYSIDE2 = "PySide2"
+PYSIDE6 = "PySide6"
+PYQT4 = "PyQt4"
+PYQT5 = "PyQt5"
+PYQT6 = "PyQt6"
+
+# pylint: disable=import-error, no-name-in-module
+# fmt: off
+if QT_LIB is None:
+    libOrder = [PYQT5, PYSIDE2, PYSIDE6, PYQT6]
+    for lib in libOrder:
+        if lib in sys.modules:
+            QT_LIB = lib
+            break
+
+if QT_LIB is None:
+    for lib in libOrder:
+        try:
+            __import__(lib)
+            QT_LIB = lib
+            break
+        except ImportError:
+            pass
+
+if QT_LIB is None:
+    raise Exception(
+        "demo_B_GUI_minimal requires PyQt5, PyQt6, PySide2 or PySide6; "
+        "none of these packages could be imported."
+    )
+
+if QT_LIB == PYQT5:
+    from PyQt5 import QtCore, QtWidgets as QtWid           # type: ignore
+    from PyQt5.QtCore import pyqtSlot as Slot              # type: ignore
+elif QT_LIB == PYQT6:
+    from PyQt6 import QtCore, QtWidgets as QtWid           # type: ignore
+    from PyQt6.QtCore import pyqtSlot as Slot              # type: ignore
+elif QT_LIB == PYSIDE2:
+    from PySide2 import QtCore, QtWidgets as QtWid         # type: ignore
+    from PySide2.QtCore import Slot                        # type: ignore
+elif QT_LIB == PYSIDE6:
+    from PySide6 import QtCore, QtWidgets as QtWid         # type: ignore
+    from PySide6.QtCore import Slot                        # type: ignore
+
+# fmt: on
+# pylint: enable=import-error, no-name-in-module
+# \end[Mechanism to support both PyQt and PySide]
+# -----------------------------------------------
+
+import psutil
+import numpy as np
 import pyqtgraph as pg
 
 from dvg_debug_functions import dprint, print_fancy_traceback as pft
@@ -55,7 +104,7 @@ DEBUG = False
 
 
 def get_current_date_time():
-    cur_date_time = QDateTime.currentDateTime()
+    cur_date_time = QtCore.QDateTime.currentDateTime()
     return (
         cur_date_time.toString("dd-MM-yyyy"),  # Date
         cur_date_time.toString("HH:mm:ss"),  # Time
@@ -129,7 +178,7 @@ class MainWindow(QtWid.QWidget):
 # ------------------------------------------------------------------------------
 
 
-@QtCore.pyqtSlot()
+@Slot()
 def about_to_quit():
     print("\nAbout to quit")
     app.processEvents()
@@ -241,7 +290,7 @@ if __name__ == "__main__":
     # fmt: on
 
     # Start workers
-    qdev_ard.start(DAQ_priority=QtCore.QThread.TimeCriticalPriority)
+    qdev_ard.start(DAQ_priority=QtCore.QThread.Priority.TimeCriticalPriority)
 
     # --------------------------------------------------------------------------
     #   Create timers
@@ -256,4 +305,7 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
 
     window.show()
-    sys.exit(app.exec_())
+    if QT_LIB in (PYQT5, PYSIDE2):
+        sys.exit(app.exec_())
+    else:
+        sys.exit(app.exec())
