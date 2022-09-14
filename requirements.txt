@@ -1,6 +1,5 @@
 numpy~=1.15
 psutil~=5.6
-pyserial~=3.4
 pyopengl~=3.1
 pyqtgraph~=0.11
 
