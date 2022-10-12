@@ -179,10 +179,12 @@ class MainWindow(QtWid.QWidget):
         self.qlbl_update_counter = QtWid.QLabel("0")
         self.qlbl_DAQ_rate = QtWid.QLabel("DAQ: nan Hz")
         self.qlbl_DAQ_rate.setStyleSheet("QLabel {min-width: 7em}")
+        self.qlbl_recording_time = QtWid.QLabel()
 
         vbox_left = QtWid.QVBoxLayout()
         vbox_left.addWidget(self.qlbl_update_counter, stretch=0)
         vbox_left.addStretch(1)
+        vbox_left.addWidget(self.qlbl_recording_time, stretch=0)
         vbox_left.addWidget(self.qlbl_DAQ_rate, stretch=0)
 
         # Middle box
@@ -210,17 +212,28 @@ class MainWindow(QtWid.QWidget):
         vbox_middle.addWidget(self.qpbt_record)
 
         # Right box
+        p = {
+            "alignment": QtCore.Qt.AlignmentFlag.AlignRight
+            | QtCore.Qt.AlignmentFlag.AlignVCenter
+        }
         self.qpbt_exit = QtWid.QPushButton("Exit")
         self.qpbt_exit.clicked.connect(self.close)
         self.qpbt_exit.setMinimumHeight(30)
-        self.qlbl_recording_time = QtWid.QLabel(
-            alignment=QtCore.Qt.AlignmentFlag.AlignRight
+        self.qlbl_GitHub = QtWid.QLabel(
+            f'<a href="{__url__}">GitHub source</a>', **p
         )
+        self.qlbl_GitHub.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.qlbl_GitHub.setTextInteractionFlags(
+            QtCore.Qt.TextInteractionFlag.TextBrowserInteraction
+        )
+        self.qlbl_GitHub.setOpenExternalLinks(True)
 
-        vbox_right = QtWid.QVBoxLayout()
+        vbox_right = QtWid.QVBoxLayout(spacing=4)
         vbox_right.addWidget(self.qpbt_exit, stretch=0)
         vbox_right.addStretch(1)
-        vbox_right.addWidget(self.qlbl_recording_time, stretch=0)
+        vbox_right.addWidget(QtWid.QLabel(__author__, **p))
+        vbox_right.addWidget(self.qlbl_GitHub)
+        vbox_right.addWidget(QtWid.QLabel(f"v{__version__}", **p))
 
         # Round up top frame
         hbox_top = QtWid.QHBoxLayout()
@@ -386,17 +399,16 @@ class MainWindow(QtWid.QWidget):
     @Slot()
     def update_GUI(self):
         str_cur_date, str_cur_time, _ = get_current_date_time()
-        self.qlbl_cur_date_time.setText(
-            "%s    %s" % (str_cur_date, str_cur_time)
-        )
-        self.qlbl_update_counter.setText("%i" % qdev_ard.update_counter_DAQ)
+        self.qlbl_cur_date_time.setText(f"{str_cur_date}    {str_cur_time}")
+        self.qlbl_update_counter.setText(f"{qdev_ard.update_counter_DAQ}")
         self.qlbl_DAQ_rate.setText(
-            "DAQ: %.1f Hz" % qdev_ard.obtained_DAQ_rate_Hz
+            f"DAQ: {qdev_ard.obtained_DAQ_rate_Hz:.1f} Hz"
         )
-        if log.is_recording():
-            self.qlbl_recording_time.setText(log.pretty_elapsed())
-        self.qlin_reading_t.setText("%.3f" % state.time)
-        self.qlin_reading_1.setText("%.4f" % state.reading_1)
+        self.qlbl_recording_time.setText(
+            f"REC: {log.pretty_elapsed()}" if log.is_recording() else ""
+        )
+        self.qlin_reading_t.setText(f"{state.time:.3f}")
+        self.qlin_reading_1.setText(f"{state.reading_1:.4f}")
 
     @Slot()
     def update_chart(self):
@@ -431,7 +443,7 @@ def notify_connection_lost():
         str_cur_date,
         str_cur_time,
     )
-    print("\nCRITICAL ERROR @ %s" % str_msg)
+    print(f"\nCRITICAL ERROR @ {str_msg}")
     reply = QtWid.QMessageBox.warning(
         window, "CRITICAL ERROR", str_msg, QtWid.QMessageBox.Ok
     )
@@ -459,10 +471,7 @@ def DAQ_function():
     # Query the Arduino for its state
     success, tmp_state = ard.query_ascii_values("?", delimiter="\t")
     if not (success):
-        dprint(
-            "'%s' reports IOError @ %s %s"
-            % (ard.name, str_cur_date, str_cur_time)
-        )
+        dprint(f"'{ard.name}' reports IOError @ {str_cur_date} {str_cur_time}")
         return False
 
     # Parse readings into separate state variables
@@ -471,10 +480,7 @@ def DAQ_function():
         state.time /= 1000
     except Exception as err:
         pft(err, 3)
-        dprint(
-            "'%s' reports IOError @ %s %s"
-            % (ard.name, str_cur_date, str_cur_time)
-        )
+        dprint(f"'{ard.name}' reports IOError @ {str_cur_date} {str_cur_time}")
         return False
 
     if USE_PC_TIME:
@@ -500,7 +506,7 @@ def write_data_to_log():
     else:
         timestamp = state.time
 
-    log.write("%.3f\t%.4f\n" % (timestamp, state.reading_1))
+    log.write(f"{timestamp:.3f}\t{state.reading_1:.4f}\n")
 
 
 # ------------------------------------------------------------------------------
@@ -509,7 +515,7 @@ def write_data_to_log():
 
 if __name__ == "__main__":
     # Set priority of this process to maximum in the operating system
-    print("PID: %s\n" % os.getpid())
+    print(f"PID: {os.getpid()}\n")
     try:
         proc = psutil.Process(os.getpid())
         if os.name == "nt":
@@ -559,7 +565,7 @@ if __name__ == "__main__":
     )
     log.signal_recording_started.connect(
         lambda filepath: window.qpbt_record.setText(
-            "Recording to file: %s" % filepath
+            f"Recording to file: {filepath}"
         )
     )
     log.signal_recording_stopped.connect(
@@ -577,6 +583,7 @@ if __name__ == "__main__":
     qdev_ard.create_worker_DAQ(
         DAQ_function=DAQ_function,
         DAQ_interval_ms=DAQ_INTERVAL_MS,
+        DAQ_timer_type=QtCore.Qt.TimerType.PreciseTimer,
         critical_not_alive_count=1,
         debug=DEBUG,
     )

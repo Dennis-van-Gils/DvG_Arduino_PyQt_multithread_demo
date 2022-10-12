@@ -213,10 +213,7 @@ def DAQ_function():
     # Query the Arduino for its state
     success, tmp_state = ard.query_ascii_values("?", delimiter="\t")
     if not (success):
-        dprint(
-            "'%s' reports IOError @ %s %s"
-            % (ard.name, str_cur_date, str_cur_time)
-        )
+        dprint(f"'{ard.name}' reports IOError @ {str_cur_date} {str_cur_time}")
         return False
 
     # Parse readings into separate state variables
@@ -225,10 +222,7 @@ def DAQ_function():
         state.time /= 1000
     except Exception as err:
         pft(err, 3)
-        dprint(
-            "'%s' reports IOError @ %s %s"
-            % (ard.name, str_cur_date, str_cur_time)
-        )
+        dprint(f"'{ard.name}' reports IOError @ {str_cur_date} {str_cur_time}")
         return False
 
     # Use Arduino time or PC time?
@@ -248,7 +242,7 @@ def DAQ_function():
 
 if __name__ == "__main__":
     # Set priority of this process to maximum in the operating system
-    print("PID: %s\n" % os.getpid())
+    print(f"PID: {os.getpid()}\n")
     try:
         proc = psutil.Process(os.getpid())
         if os.name == "nt":
@@ -293,14 +287,13 @@ if __name__ == "__main__":
     qdev_ard = QDeviceIO(ard)
 
     # Create workers
-    # fmt: off
     qdev_ard.create_worker_DAQ(
-        DAQ_function             = DAQ_function,
-        DAQ_interval_ms          = DAQ_INTERVAL_MS,
-        critical_not_alive_count = 1,
-        debug                    = DEBUG,
+        DAQ_function=DAQ_function,
+        DAQ_interval_ms=DAQ_INTERVAL_MS,
+        DAQ_timer_type=QtCore.Qt.TimerType.PreciseTimer,
+        critical_not_alive_count=1,
+        debug=DEBUG,
     )
-    # fmt: on
 
     # Start workers
     qdev_ard.start(DAQ_priority=QtCore.QThread.Priority.TimeCriticalPriority)

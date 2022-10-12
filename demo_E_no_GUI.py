@@ -144,8 +144,9 @@ def about_to_quit():
 @Slot()
 def update_terminal():
     print(
-        "%i\t%.3f\t%.4f"
-        % (qdev_ard.update_counter_DAQ - 1, state.time, state.reading_1),
+        f"{qdev_ard.update_counter_DAQ - 1}\t"
+        f"{state.time:.3f}\t"
+        f"{state.reading_1:.4f}",
         # end="\r",
         # flush=True,
     )
@@ -160,7 +161,7 @@ def DAQ_function():
     # Query the Arduino for its state
     success, tmp_state = ard.query_ascii_values("?", delimiter="\t")
     if not (success):
-        dprint("'%s' reports IOError" % ard.name)
+        dprint(f"'{ard.name}' reports IOError")
         return False
 
     # Parse readings into separate state variables
@@ -169,7 +170,7 @@ def DAQ_function():
         state.time /= 1000
     except Exception as err:
         pft(err, 3)
-        dprint("'%s' reports IOError" % ard.name)
+        dprint(f"'{ard.name}' reports IOError")
         return False
 
     # Use Arduino time or PC time?
@@ -194,7 +195,7 @@ def DAQ_function():
 
 if __name__ == "__main__":
     # Set priority of this process to maximum in the operating system
-    print("PID: %s\n" % os.getpid())
+    print(f"PID: {os.getpid()}\n")
     try:
         proc = psutil.Process(os.getpid())
         if os.name == "nt":
