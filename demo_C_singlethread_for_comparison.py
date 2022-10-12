@@ -12,36 +12,49 @@ the place.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "14-09-2022"
-__version__ = "8.0"
+__date__ = "12-10-2022"
+__version__ = "8.1"
 # pylint: disable=bare-except, broad-except, unnecessary-lambda
 
+import os
+import sys
 import time
+
+# Constants
+# fmt: off
+DAQ_INTERVAL_MS    = 10  # 10 [ms]
+CHART_INTERVAL_MS  = 20  # 20 [ms]
+CHART_HISTORY_TIME = 10  # 10 [s]
+# fmt: on
+
+# Global flags
+USE_PC_TIME = True  # Use Arduino time or PC time?
+SIMULATE_ARDUINO = False  # Simulate an Arduino, instead?
+if sys.argv[-1] == "simulate":
+    SIMULATE_ARDUINO = True
+
+# Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
+DEBUG = False
 
 # Mechanism to support both PyQt and PySide
 # -----------------------------------------
-import os
-import sys
 
-QT_LIB = os.getenv("PYQTGRAPH_QT_LIB")
-PYSIDE = "PySide"
-PYSIDE2 = "PySide2"
-PYSIDE6 = "PySide6"
-PYQT4 = "PyQt4"
 PYQT5 = "PyQt5"
 PYQT6 = "PyQt6"
+PYSIDE2 = "PySide2"
+PYSIDE6 = "PySide6"
+QT_LIB_ORDER = [PYQT5, PYSIDE2, PYSIDE6, PYQT6]
+QT_LIB = os.getenv("PYQTGRAPH_QT_LIB")
 
-# pylint: disable=import-error, no-name-in-module
-# fmt: off
+# pylint: disable=import-error, no-name-in-module, c-extension-no-member
 if QT_LIB is None:
-    libOrder = [PYQT5, PYSIDE2, PYSIDE6, PYQT6]
-    for lib in libOrder:
+    for lib in QT_LIB_ORDER:
         if lib in sys.modules:
             QT_LIB = lib
             break
 
 if QT_LIB is None:
-    for lib in libOrder:
+    for lib in QT_LIB_ORDER:
         try:
             __import__(lib)
             QT_LIB = lib
@@ -50,11 +63,13 @@ if QT_LIB is None:
             pass
 
 if QT_LIB is None:
+    this_file = __file__.split(os.sep)[-1]
     raise Exception(
-        "demo_C_singlethread_for_comparison requires PyQt5, PyQt6, PySide2 or PySide6; "
+        f"{this_file} requires PyQt5, PyQt6, PySide2 or PySide6; "
         "none of these packages could be imported."
     )
 
+# fmt: off
 if QT_LIB == PYQT5:
     from PyQt5 import QtCore, QtGui, QtWidgets as QtWid    # type: ignore
     from PyQt5.QtCore import pyqtSlot as Slot              # type: ignore
@@ -67,9 +82,14 @@ elif QT_LIB == PYSIDE2:
 elif QT_LIB == PYSIDE6:
     from PySide6 import QtCore, QtGui, QtWidgets as QtWid  # type: ignore
     from PySide6.QtCore import Slot                        # type: ignore
-
 # fmt: on
-# pylint: enable=import-error, no-name-in-module
+
+QT_VERSION = (
+    QtCore.QT_VERSION_STR if QT_LIB in (PYQT5, PYQT6) else QtCore.__version__
+)
+print(f"{QT_LIB} {QT_VERSION}")
+
+# pylint: enable=import-error, no-name-in-module, c-extension-no-member
 # \end[Mechanism to support both PyQt and PySide]
 # -----------------------------------------------
 
@@ -104,22 +124,6 @@ else:
 # Global pyqtgraph configuration
 # pg.setConfigOptions(leftButtonPan=False)
 pg.setConfigOption("foreground", "#EEE")
-
-# Constants
-# fmt: off
-DAQ_INTERVAL_MS    = 10  # 10 [ms]
-CHART_INTERVAL_MS  = 20  # 20 [ms]
-CHART_HISTORY_TIME = 10  # 10 [s]
-# fmt: on
-
-# Global flags
-USE_PC_TIME = True  # Use Arduino time or PC time?
-SIMULATE_ARDUINO = False  # Simulate an Arduino, instead?
-if sys.argv[-1] == "simulate":
-    SIMULATE_ARDUINO = True
-
-# Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
-DEBUG = False
 
 
 def get_current_date_time():
