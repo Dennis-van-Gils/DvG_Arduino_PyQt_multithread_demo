@@ -6,8 +6,8 @@ data using PyQt/PySide and PyQtGraph.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "12-09-2022"
-__version__ = "8.1"
+__date__ = "13-09-2022"
+__version__ = "8.2"
 # pylint: disable=bare-except, broad-except
 
 import os
@@ -22,6 +22,7 @@ CHART_HISTORY_TIME = 10  # 10 [s]
 # fmt: on
 
 # Global flags
+TRY_USING_OPENGL = True
 SIMULATE_ARDUINO = False  # Simulate an Arduino, instead?
 if sys.argv[-1] == "simulate":
     SIMULATE_ARDUINO = True
@@ -80,7 +81,6 @@ elif QT_LIB == PYSIDE6:
 QT_VERSION = (
     QtCore.QT_VERSION_STR if QT_LIB in (PYQT5, PYQT6) else QtCore.__version__
 )
-print(f"{QT_LIB} {QT_VERSION}")
 
 # pylint: enable=import-error, no-name-in-module, c-extension-no-member
 # \end[Mechanism to support both PyQt and PySide]
@@ -90,6 +90,9 @@ import psutil
 import numpy as np
 import pyqtgraph as pg
 
+print(f"{QT_LIB:9s} {QT_VERSION}")
+print(f"PyQtGraph {pg.__version__}")
+
 from dvg_debug_functions import dprint, print_fancy_traceback as pft
 from dvg_pyqtgraph_threadsafe import HistoryChartCurve
 
@@ -97,16 +100,20 @@ from dvg_fakearduino import FakeArduino
 from dvg_devices.Arduino_protocol_serial import Arduino
 from dvg_qdeviceio import QDeviceIO
 
-try:
-    import OpenGL.GL as gl  # pylint: disable=unused-import
-except:
-    print("OpenGL acceleration: Disabled")
-    print("To install: `conda install pyopengl` or `pip install pyopengl`")
+if TRY_USING_OPENGL:
+    try:
+        import OpenGL.GL as gl  # pylint: disable=unused-import
+        from OpenGL.version import __version__ as gl_version
+    except:
+        print("PyOpenGL  not found")
+        print("To install: `conda install pyopengl` or `pip install pyopengl`")
+    else:
+        print(f"PyOpenGL  {gl_version}")
+        pg.setConfigOptions(useOpenGL=True)
+        pg.setConfigOptions(antialias=True)
+        pg.setConfigOptions(enableExperimental=True)
 else:
-    print("OpenGL acceleration: Enabled")
-    pg.setConfigOptions(useOpenGL=True)
-    pg.setConfigOptions(antialias=True)
-    pg.setConfigOptions(enableExperimental=True)
+    print("PyOpenGL  disabled")
 
 # Global pyqtgraph configuration
 # pg.setConfigOptions(leftButtonPan=False)
