@@ -42,6 +42,10 @@ Enabling OpenGL for plotting within PyQtGraph has major benefits as the drawing 
 
 the specific version of PyQtGraph will have a major influence on the timing stability of the DAQ routine, even though it is running in a separate dedicated thread. This becomes visible as a fluctuating time stamp in the recorded log file. Remarkably, I observe that ``PyQtGraph==0.11.1 leads to a superior timing stability`` of +/- 1 ms in the recorded time stamps, whereas ``0.12.x`` and ``0.13.1`` are very detrimental to the stability with values of +/- 20 ms. The cause for this lies in the different way that PyQtGraph v0.12+ handles `PlotDataItem()` with PyOpenGL. I suspect that the Python GIL (Global Interpreter Lock) is responsible for this, somehow. There is nothing I can do about that and hopefully this gets resolved in future PyQtGraph versions.
 
+Note to myself
+--------------
+You can circumvent the DAQ stability issue by going to a more advanced scheme. It would involve having the Arduino perform measurements at a fixed rate *autonomously* and sending this data including the Arduino time stamp over to Python in chunks. The DAQ_worker inside Python should not be of type ``DAQ_TRIGGER.INTERNAL_TIMER`` as per this repo, i.e. Python should not act as a 'master' device, but rather should be of type ``DAQ_TRIGGER.CONTINUOUS`` to act as a slave to the Arduino and continously listen for its data. This advanced scheme is actually implemented in my `Arduino Lock-in Amplifier <https://github.com/Dennis-van-Gils/DvG_Arduino_lock-in_amp>`__ project with good success.
+
 Recommendation
 --------------
 
