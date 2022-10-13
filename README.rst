@@ -32,4 +32,4 @@ Other depencies you'll need for this demo can be installed by running::
 PyQtGraph performance
 =====================
 
-The specific version of PyQtGraph *can* have major influence on the timing stability of the DAQ routine, visible as a fluctuating time stamp in a recorded log file. I observe that ``PyQtGraph==0.11`` leads to a great timing stability of +/- 1 ms, whereas ``0.12.4`` and ``0.13.1`` are very detrimental to the stability with values of +/- 20 ms. The reason for this is still unknown. I have to investigate further.
+The specific version of PyQtGraph *can* have major influence on the timing stability of the DAQ routine whenever OpenGL is enabled, visible as a fluctuating time stamp in a recorded log file. I observe that ``PyQtGraph==0.11`` leads to a great timing stability of +/- 1 ms, whereas ``0.12.4`` and ``0.13.1`` are very detrimental to the stability with values of +/- 20 ms. The reason for this is still unknown. I have to investigate further.
