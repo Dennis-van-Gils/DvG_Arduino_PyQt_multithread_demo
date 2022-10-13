@@ -9,32 +9,29 @@ __date__ = "13-10-2022"
 __version__ = "0.0.1"
 # pylint: disable=unused-argument
 
+import os
+import sys
 import time
 
 # Mechanism to support both PyQt and PySide
 # -----------------------------------------
-import os
-import sys
 
-QT_LIB = os.getenv("PYQTGRAPH_QT_LIB")
-PYSIDE = "PySide"
-PYSIDE2 = "PySide2"
-PYSIDE6 = "PySide6"
-PYQT4 = "PyQt4"
 PYQT5 = "PyQt5"
 PYQT6 = "PyQt6"
+PYSIDE2 = "PySide2"
+PYSIDE6 = "PySide6"
+QT_LIB_ORDER = [PYQT5, PYSIDE2, PYSIDE6, PYQT6]
+QT_LIB = os.getenv("PYQTGRAPH_QT_LIB")
 
-# pylint: disable=import-error, no-name-in-module
-# fmt: off
+# pylint: disable=import-error, no-name-in-module, c-extension-no-member
 if QT_LIB is None:
-    libOrder = [PYQT5, PYSIDE2, PYSIDE6, PYQT6]
-    for lib in libOrder:
+    for lib in QT_LIB_ORDER:
         if lib in sys.modules:
             QT_LIB = lib
             break
 
 if QT_LIB is None:
-    for lib in libOrder:
+    for lib in QT_LIB_ORDER:
         try:
             __import__(lib)
             QT_LIB = lib
@@ -43,11 +40,13 @@ if QT_LIB is None:
             pass
 
 if QT_LIB is None:
+    this_file = __file__.split(os.sep)[-1]
     raise Exception(
-        "dvg_fakearduino requires PyQt5, PyQt6, PySide2 or PySide6; "
+        f"{this_file} requires PyQt5, PyQt6, PySide2 or PySide6; "
         "none of these packages could be imported."
     )
 
+# fmt: off
 if QT_LIB == PYQT5:
     from PyQt5 import QtCore    # type: ignore
 elif QT_LIB == PYQT6:
@@ -56,8 +55,8 @@ elif QT_LIB == PYSIDE2:
     from PySide2 import QtCore  # type: ignore
 elif QT_LIB == PYSIDE6:
     from PySide6 import QtCore  # type: ignore
-
 # fmt: on
+
 # pylint: enable=import-error, no-name-in-module
 # \end[Mechanism to support both PyQt and PySide]
 # -----------------------------------------------
