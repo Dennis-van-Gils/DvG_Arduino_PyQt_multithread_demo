@@ -5,7 +5,7 @@
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "14-09-2022"
+__date__ = "13-10-2022"
 __version__ = "0.0.1"
 # pylint: disable=unused-argument
 
@@ -96,7 +96,7 @@ class FakeArduino:
         elif self.wave_type == "sawtooth":
             wave = 2 * np.mod(self.wave_freq * t, 1.0) - 1
 
-        return (True, (t, wave))
+        return (True, (t * 1000, wave))
 
     def close(self):
         pass
