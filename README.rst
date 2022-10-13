@@ -19,7 +19,7 @@ This demo needs just a bare Arduino(-like) device that, for demonstration purpos
   
   Alternatively, you can simulate the Arduino by running `python demo_A_GUI_full.py simulate`.
 
-It features a graphical user-interface, with a PyQtGraph plot for fast real-time plotting of data. The main thread handles the GUI and redrawing of the plot, another thread deals with acquiring data from the Arduino at a fixed rate and a third thread maintains a thread-safe queue where messages to be sent out to the Arduino are managed.
+It features a graphical user-interface, with a PyQtGraph plot for fast real-time plotting of data. The main thread handles the GUI and redrawing of the plot, another thread deals with acquiring data (DAQ) from the Arduino at a fixed rate and a third thread maintains a thread-safe queue where messages to be sent out to the Arduino are managed.
 
 
 .. image:: /images/Arduino_PyQt_demo_with_multithreading.PNG
@@ -47,5 +47,5 @@ Recommendation
 
 ``Stick with pyqtgraph==0.11.1`` when OpenGL is needed and when consistent and high (> 10 Hz) DAQ rates are required. Unfortunately, ``0.11.1`` only supports PyQt5 or PySide2, not PyQt6 or PySide6 which get supported from of version ``0.12+``.
 
-Note: ``pyqtgraph==0.11.0`` has a line width issue with OpenGL curves and is stuck at 1 pixel, unless you apply my monkeypatch found at https://github.com/Dennis-van-Gils/python-dvg-pyqtgraph-monkeypatch
+Note: ``pyqtgraph==0.11.0`` has a line width issue with OpenGL curves and is stuck at 1 pixel, unless you apply `my monkeypatch <https://github.com/Dennis-van-Gils/python-dvg-pyqtgraph-monkeypatch>`_.
 
