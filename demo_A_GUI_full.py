@@ -223,9 +223,8 @@ class MainWindow(QtWid.QWidget):
             "alignment": QtCore.Qt.AlignmentFlag.AlignRight
             | QtCore.Qt.AlignmentFlag.AlignVCenter
         }
-        self.qpbt_exit = QtWid.QPushButton("Exit")
+        self.qpbt_exit = QtWid.QPushButton("Exit", minimumHeight=30)
         self.qpbt_exit.clicked.connect(self.close)
-        self.qpbt_exit.setMinimumHeight(30)
         self.qlbl_GitHub = QtWid.QLabel(
             f'<a href="{__url__}">GitHub source</a>', **p
         )
