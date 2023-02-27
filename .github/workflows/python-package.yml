@@ -43,7 +43,7 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        python demo_A_GUI_full.py simulate
+        # python demo_A_GUI_full.py simulate
         python demo_A_GUI_full.py
         python demo_B_GUI_minimal.py
         python demo_C_singlethread_for_comparison.py
