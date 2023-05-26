@@ -1,5 +1,5 @@
-.. image:: https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo/actions/workflows/python-package.yml/badge.svg
-    :target: https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo/actions/workflows/python-package.yml
+.. image:: https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo/actions/workflows/python-demos.yml/badge.svg
+    :target: https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo/actions/workflows/python-demos.yml
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
     :target: https://github.com/psf/black
 .. image:: https://img.shields.io/badge/License-MIT-purple.svg
