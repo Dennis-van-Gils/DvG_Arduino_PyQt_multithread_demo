@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10"]
+        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
         qt-lib: [pyqt5, pyside2]
     env:
       DISPLAY: ':99.0'
@@ -47,5 +47,5 @@ jobs:
         python demo_A_GUI_full.py
         python demo_B_GUI_minimal.py
         python demo_C_singlethread_for_comparison.py
-        python demo_D_no_GUI.py
-        python demo_E_no_GUI.py
+        python demo_D_no_GUI.py simulate
+        python demo_E_no_GUI.py simulate
