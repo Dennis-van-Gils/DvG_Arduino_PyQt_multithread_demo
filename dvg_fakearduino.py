@@ -5,76 +5,45 @@
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "13-10-2022"
+__date__ = "30-05-2024"
 __version__ = "0.0.1"
-# pylint: disable=unused-argument
+# pylint: disable=unused-argument, missing-function-docstring
 
-import os
-import sys
 import time
 
-# Mechanism to support both PyQt and PySide
-# -----------------------------------------
-
-PYQT5 = "PyQt5"
-PYQT6 = "PyQt6"
-PYSIDE2 = "PySide2"
-PYSIDE6 = "PySide6"
-QT_LIB_ORDER = [PYQT5, PYSIDE2, PYSIDE6, PYQT6]
-QT_LIB = os.getenv("PYQTGRAPH_QT_LIB")
-
-# pylint: disable=import-error, no-name-in-module, c-extension-no-member
-if QT_LIB is None:
-    for lib in QT_LIB_ORDER:
-        if lib in sys.modules:
-            QT_LIB = lib
-            break
-
-if QT_LIB is None:
-    for lib in QT_LIB_ORDER:
-        try:
-            __import__(lib)
-            QT_LIB = lib
-            break
-        except ImportError:
-            pass
-
-if QT_LIB is None:
-    this_file = __file__.split(os.sep)[-1]
-    raise Exception(
-        f"{this_file} requires PyQt5, PyQt6, PySide2 or PySide6; "
-        "none of these packages could be imported."
-    )
-
-# fmt: off
-if QT_LIB == PYQT5:
-    from PyQt5 import QtCore    # type: ignore
-elif QT_LIB == PYQT6:
-    from PyQt6 import QtCore    # type: ignore
-elif QT_LIB == PYSIDE2:
-    from PySide2 import QtCore  # type: ignore
-elif QT_LIB == PYSIDE6:
-    from PySide6 import QtCore  # type: ignore
-# fmt: on
-
-# pylint: enable=import-error, no-name-in-module
-# \end[Mechanism to support both PyQt and PySide]
-# -----------------------------------------------
-
+from qtpy import QtCore
 import numpy as np
 
 
 class FakeArduino:
+    class State:
+        """Reflects the actual readings, parsed into separate variables, of the
+        wave generator Arduino.
+        """
+
+        time = np.nan  # [s]
+        reading_1 = np.nan  # [arbitrary units]
+
+        # Keep track of the obtained DAQ rate. Only needed for the singlethread
+        # demo C.
+        update_counter_DAQ = 0
+        obtained_DAQ_rate_Hz = np.nan
+        QET_rate = QtCore.QElapsedTimer()
+        rate_accumulator = 0
+
     def __init__(
         self,
         *args,
         **kwargs,
     ):
-        self.serial_settings = dict()
+        self.serial_settings = {}
         self.name = "FakeArd"
         self.long_name = "FakeArduino"
         self.is_alive = True
         self.mutex = QtCore.QMutex()
+
+        # Container for the process and measurement variables
+        self.state = self.State
 
         self.wave_freq = 0.3  # [Hz]
         self.wave_type = "sine"

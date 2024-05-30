@@ -6,105 +6,55 @@ data using PyQt/PySide and PyQtGraph.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "13-09-2022"
-__version__ = "8.2"
-# pylint: disable=bare-except, broad-except
+__date__ = "30-05-2024"
+__version__ = "8.4"
+# pylint: disable=missing-function-docstring
 
 import os
 import sys
 import time
+from typing import Union
 
-# Constants
+import qtpy
+from qtpy import QtCore, QtWidgets as QtWid
+from qtpy.QtCore import Slot  # type: ignore
+
+import psutil
+import numpy as np
+import pyqtgraph as pg
+
+from dvg_debug_functions import dprint, print_fancy_traceback as pft
+from dvg_pyqtgraph_threadsafe import HistoryChartCurve
+
+from dvg_devices.Arduino_protocol_serial import Arduino
+from dvg_qdeviceio import QDeviceIO, DAQ_TRIGGER
+from dvg_fakearduino import FakeArduino
+
 # fmt: off
+# Constants
 DAQ_INTERVAL_MS    = 10  # 10 [ms]
 CHART_INTERVAL_MS  = 20  # 20 [ms]
 CHART_HISTORY_TIME = 10  # 10 [s]
-# fmt: on
 
 # Global flags
 TRY_USING_OPENGL = True
+USE_PC_TIME      = True   # Use Arduino time or PC time?
 SIMULATE_ARDUINO = False  # Simulate an Arduino, instead?
+# fmt: on
 if sys.argv[-1] == "simulate":
     SIMULATE_ARDUINO = True
 
 # Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
 DEBUG = False
 
-# Mechanism to support both PyQt and PySide
-# -----------------------------------------
-
-PYQT5 = "PyQt5"
-PYQT6 = "PyQt6"
-PYSIDE2 = "PySide2"
-PYSIDE6 = "PySide6"
-QT_LIB_ORDER = [PYQT5, PYSIDE2, PYSIDE6, PYQT6]
-QT_LIB = os.getenv("PYQTGRAPH_QT_LIB")
-
-# pylint: disable=import-error, no-name-in-module, c-extension-no-member
-if QT_LIB is None:
-    for lib in QT_LIB_ORDER:
-        if lib in sys.modules:
-            QT_LIB = lib
-            break
-
-if QT_LIB is None:
-    for lib in QT_LIB_ORDER:
-        try:
-            __import__(lib)
-            QT_LIB = lib
-            break
-        except ImportError:
-            pass
-
-if QT_LIB is None:
-    this_file = __file__.split(os.sep)[-1]
-    raise Exception(
-        f"{this_file} requires PyQt5, PyQt6, PySide2 or PySide6; "
-        "none of these packages could be imported."
-    )
-
-# fmt: off
-if QT_LIB == PYQT5:
-    from PyQt5 import QtCore, QtWidgets as QtWid           # type: ignore
-    from PyQt5.QtCore import pyqtSlot as Slot              # type: ignore
-elif QT_LIB == PYQT6:
-    from PyQt6 import QtCore, QtWidgets as QtWid           # type: ignore
-    from PyQt6.QtCore import pyqtSlot as Slot              # type: ignore
-elif QT_LIB == PYSIDE2:
-    from PySide2 import QtCore, QtWidgets as QtWid         # type: ignore
-    from PySide2.QtCore import Slot                        # type: ignore
-elif QT_LIB == PYSIDE6:
-    from PySide6 import QtCore, QtWidgets as QtWid         # type: ignore
-    from PySide6.QtCore import Slot                        # type: ignore
-# fmt: on
-
-QT_VERSION = (
-    QtCore.QT_VERSION_STR if QT_LIB in (PYQT5, PYQT6) else QtCore.__version__
-)
-
-# pylint: enable=import-error, no-name-in-module, c-extension-no-member
-# \end[Mechanism to support both PyQt and PySide]
-# -----------------------------------------------
-
-import psutil
-import numpy as np
-import pyqtgraph as pg
-
-print(f"{QT_LIB:9s} {QT_VERSION}")
+print(f"{qtpy.API_NAME:9s} {qtpy.QT_VERSION}")
 print(f"PyQtGraph {pg.__version__}")
-
-from dvg_debug_functions import dprint, print_fancy_traceback as pft
-from dvg_pyqtgraph_threadsafe import HistoryChartCurve
-
-from dvg_fakearduino import FakeArduino
-from dvg_devices.Arduino_protocol_serial import Arduino
-from dvg_qdeviceio import QDeviceIO
 
 if TRY_USING_OPENGL:
     try:
         import OpenGL.GL as gl  # pylint: disable=unused-import
         from OpenGL.version import __version__ as gl_version
-    except:
+    except Exception:  # pylint: disable=broad-except
         print("PyOpenGL  not found")
         print("To install: `conda install pyopengl` or `pip install pyopengl`")
     else:
@@ -119,29 +69,50 @@ else:
 # pg.setConfigOptions(leftButtonPan=False)
 pg.setConfigOption("foreground", "#EEE")
 
+# ------------------------------------------------------------------------------
+#   current_date_time_strings
+# ------------------------------------------------------------------------------
 
-def get_current_date_time():
+
+def current_date_time_strings():
     cur_date_time = QtCore.QDateTime.currentDateTime()
     return (
         cur_date_time.toString("dd-MM-yyyy"),  # Date
         cur_date_time.toString("HH:mm:ss"),  # Time
-        cur_date_time.toString("yyMMdd_HHmmss"),  # Reverse notation date-time
     )
 
 
 # ------------------------------------------------------------------------------
-#   Arduino state
+#   WaveGeneratorArduino
 # ------------------------------------------------------------------------------
 
 
-class State(object):
-    """Reflects the actual readings, parsed into separate variables, of the
-    Arduino. There should only be one instance of the State class.
-    """
+class WaveGeneratorArduino(Arduino):
+    """Provides higher-level general I/O methods for communicating with an
+    Arduino that is programmed as a wave generator."""
 
-    def __init__(self):
-        self.time = None  # [s]
-        self.reading_1 = np.nan
+    class State:
+        """Reflects the actual readings, parsed into separate variables, of the
+        wave generator Arduino.
+        """
+
+        time = np.nan  # [s]
+        reading_1 = np.nan  # [arbitrary units]
+
+    def __init__(
+        self,
+        name="Ard",
+        long_name="Arduino",
+        connect_to_specific_ID="Wave generator",
+    ):
+        super().__init__(
+            name=name,
+            long_name=long_name,
+            connect_to_specific_ID=connect_to_specific_ID,
+        )
+
+        # Container for the process and measurement variables
+        self.state = self.State
 
         # Mutex for proper multithreading. If the state variables are not
         # atomic or thread-safe, you should lock and unlock this mutex for each
@@ -150,7 +121,90 @@ class State(object):
         self.mutex = QtCore.QMutex()
 
 
-state = State()
+# ------------------------------------------------------------------------------
+#   WaveGeneratorArduino_qdev
+# ------------------------------------------------------------------------------
+
+
+class WaveGeneratorArduino_qdev(QDeviceIO):
+    """Manages multithreaded communication and periodical data acquisition for
+    a wave generator Arduino, referred to as the 'device'."""
+
+    def __init__(
+        self,
+        dev: Union[WaveGeneratorArduino, FakeArduino],
+        DAQ_interval_ms=DAQ_INTERVAL_MS,
+        DAQ_timer_type=QtCore.Qt.TimerType.PreciseTimer,
+        critical_not_alive_count=1,
+        debug=False,
+        **kwargs,
+    ):
+        super().__init__(dev, **kwargs)  # Pass kwargs onto QtCore.QObject()
+        self.dev: WaveGeneratorArduino  # Enforce type: removes `_NoDevice()`
+
+        # Pause/resume mechanism
+        self.DAQ_is_enabled = True
+
+        self.create_worker_DAQ(
+            DAQ_trigger=DAQ_TRIGGER.INTERNAL_TIMER,
+            DAQ_function=self.DAQ_function,
+            DAQ_interval_ms=DAQ_interval_ms,
+            DAQ_timer_type=DAQ_timer_type,
+            critical_not_alive_count=critical_not_alive_count,
+            debug=debug,
+        )
+        self.create_worker_jobs(debug=debug)
+
+    def set_DAQ_enabled(self, state: bool):
+        self.DAQ_is_enabled = state
+        if self.DAQ_is_enabled:
+            self.worker_DAQ.DAQ_function = self.DAQ_function
+        else:
+            self.worker_DAQ.DAQ_function = None
+
+    def set_waveform_to_sine(self):
+        self.send(self.dev.write, "sine")
+
+    def set_waveform_to_square(self):
+        self.send(self.dev.write, "square")
+
+    def set_waveform_to_sawtooth(self):
+        self.send(self.dev.write, "sawtooth")
+
+    # --------------------------------------------------------------------------
+    #   DAQ_function
+    # --------------------------------------------------------------------------
+
+    def DAQ_function(self) -> bool:
+        # Query the Arduino for its state
+        success, tmp_state = self.dev.query_ascii_values("?", delimiter="\t")
+        if not success:
+            str_cur_date, str_cur_time = current_date_time_strings()
+            dprint(
+                f"'{self.dev.name}' reports IOError @ "
+                f"{str_cur_date} {str_cur_time}"
+            )
+            return False
+
+        # Parse readings into separate state variables
+        try:
+            self.dev.state.time, self.dev.state.reading_1 = tmp_state
+            self.dev.state.time /= 1000
+        except Exception as err:  # pylint: disable=broad-except
+            pft(err, 3)
+            str_cur_date, str_cur_time = current_date_time_strings()
+            dprint(
+                f"'{self.dev.name}' reports IOError @ "
+                f"{str_cur_date} {str_cur_time}"
+            )
+            return False
+
+        if USE_PC_TIME:
+            self.dev.state.time = time.perf_counter()
+
+        # Return success
+        return True
+
 
 # ------------------------------------------------------------------------------
 #   MainWindow
@@ -162,7 +216,7 @@ class MainWindow(QtWid.QWidget):
         super().__init__(parent, **kwargs)
 
         self.setWindowTitle("Arduino & PyQt multithread demo")
-        self.setGeometry(350, 50, 800, 660)
+        self.setGeometry(40, 60, 800, 660)
 
         # GraphicsLayoutWidget
         self.gw = pg.GraphicsLayoutWidget()
@@ -189,58 +243,10 @@ class MainWindow(QtWid.QWidget):
         vbox = QtWid.QVBoxLayout(self)
         vbox.addWidget(self.gw, 1)
 
-
-# ------------------------------------------------------------------------------
-#   Program termination routines
-# ------------------------------------------------------------------------------
-
-
-@Slot()
-def about_to_quit():
-    print("\nAbout to quit")
-    app.processEvents()
-    qdev_ard.quit()
-
-    print("Stopping timers: ", end="")
-    timer_chart.stop()
-    print("done.")
-
-    ard.close()
-
-
-# ------------------------------------------------------------------------------
-#   Your Arduino update function
-# ------------------------------------------------------------------------------
-
-
-def DAQ_function():
-    # Date-time keeping
-    str_cur_date, str_cur_time, _ = get_current_date_time()
-
-    # Query the Arduino for its state
-    success, tmp_state = ard.query_ascii_values("?", delimiter="\t")
-    if not (success):
-        dprint(f"'{ard.name}' reports IOError @ {str_cur_date} {str_cur_time}")
-        return False
-
-    # Parse readings into separate state variables
-    try:
-        state.time, state.reading_1 = tmp_state
-        state.time /= 1000
-    except Exception as err:
-        pft(err, 3)
-        dprint(f"'{ard.name}' reports IOError @ {str_cur_date} {str_cur_time}")
-        return False
-
-    # Use Arduino time or PC time?
-    USE_PC_TIME = True
-    if USE_PC_TIME:
-        state.time = time.perf_counter()
-
-    # Add readings to chart history
-    window.history_chart_curve.appendData(state.time, state.reading_1)
-
-    return True
+        # Chart refresh timer
+        self.timer_chart = QtCore.QTimer()
+        self.timer_chart.setTimerType(QtCore.Qt.TimerType.PreciseTimer)
+        self.timer_chart.timeout.connect(self.history_chart_curve.update)
 
 
 # ------------------------------------------------------------------------------
@@ -256,7 +262,7 @@ if __name__ == "__main__":
             proc.nice(psutil.REALTIME_PRIORITY_CLASS)  # Windows
         else:
             proc.nice(-20)  # Other
-    except:
+    except Exception:  # pylint: disable=broad-except
         print("Warning: Could not set process to maximum priority.\n")
 
     # --------------------------------------------------------------------------
@@ -266,59 +272,69 @@ if __name__ == "__main__":
     if SIMULATE_ARDUINO:
         ard = FakeArduino()
     else:
-        ard = Arduino(name="Ard", connect_to_specific_ID="Wave generator")
+        ard = WaveGeneratorArduino()
 
     ard.serial_settings["baudrate"] = 115200
     ard.auto_connect()
 
-    if not (ard.is_alive):
+    if not ard.is_alive:
         print("\nCheck connection and try resetting the Arduino.")
         print("Exiting...\n")
         sys.exit(0)
 
     # --------------------------------------------------------------------------
-    #   Create application and main window
+    #   Create application
     # --------------------------------------------------------------------------
-    QtCore.QThread.currentThread().setObjectName("MAIN")  # For DEBUG info
+
+    main_thread = QtCore.QThread.currentThread()
+    if isinstance(main_thread, QtCore.QThread):
+        main_thread.setObjectName("MAIN")  # For DEBUG info
 
     app = QtWid.QApplication(sys.argv)
-    app.aboutToQuit.connect(about_to_quit)
-
-    window = MainWindow()
 
     # --------------------------------------------------------------------------
     #   Set up multithreaded communication with the Arduino
     # --------------------------------------------------------------------------
 
-    # Create QDeviceIO
-    qdev_ard = QDeviceIO(ard)
-
-    # Create workers
-    qdev_ard.create_worker_DAQ(
-        DAQ_function=DAQ_function,
-        DAQ_interval_ms=DAQ_INTERVAL_MS,
-        DAQ_timer_type=QtCore.Qt.TimerType.PreciseTimer,
-        critical_not_alive_count=1,
-        debug=DEBUG,
-    )
-
-    # Start workers
-    qdev_ard.start(DAQ_priority=QtCore.QThread.Priority.TimeCriticalPriority)
+    ard_qdev = WaveGeneratorArduino_qdev(dev=ard, debug=DEBUG)
 
     # --------------------------------------------------------------------------
-    #   Create timers
+    #   postprocess_DAQ_updated
     # --------------------------------------------------------------------------
 
-    timer_chart = QtCore.QTimer()
-    timer_chart.timeout.connect(window.history_chart_curve.update)
-    timer_chart.start(CHART_INTERVAL_MS)
+    @Slot()
+    def postprocess_DAQ_updated():
+        # Add readings to chart history
+        window.history_chart_curve.appendData(
+            ard.state.time, ard.state.reading_1
+        )
+
+    # --------------------------------------------------------------------------
+    #   Program termination routines
+    # --------------------------------------------------------------------------
+
+    @Slot()
+    def about_to_quit():
+        print("\nAbout to quit")
+        app.processEvents()
+        ard_qdev.quit()
+        ard.close()
+
+        print("Stopping timers: ", end="")
+        window.timer_chart.stop()
+        print("done.")
 
     # --------------------------------------------------------------------------
     #   Start the main GUI event loop
     # --------------------------------------------------------------------------
 
+    ard_qdev.signal_DAQ_updated.connect(postprocess_DAQ_updated)
+    ard_qdev.start(DAQ_priority=QtCore.QThread.Priority.TimeCriticalPriority)
+
+    app.aboutToQuit.connect(about_to_quit)
+
+    window = MainWindow()
+    window.timer_chart.start(CHART_INTERVAL_MS)
     window.show()
-    if QT_LIB in (PYQT5, PYSIDE2):
-        sys.exit(app.exec_())
-    else:
-        sys.exit(app.exec())
+
+    sys.exit(app.exec())
