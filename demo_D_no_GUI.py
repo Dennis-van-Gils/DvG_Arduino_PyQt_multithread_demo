@@ -7,8 +7,8 @@
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "30-05-2024"
-__version__ = "8.4"
+__date__ = "11-06-2024"
+__version__ = "9.0"
 # pylint: disable=missing-function-docstring
 
 import os
@@ -22,12 +22,11 @@ from qtpy import QtCore
 from qtpy.QtCore import Slot  # type: ignore
 
 import psutil
-import numpy as np
 
 from dvg_debug_functions import dprint, print_fancy_traceback as pft
-from dvg_devices.Arduino_protocol_serial import Arduino
 from dvg_qdeviceio import QDeviceIO, DAQ_TRIGGER
-from dvg_fakearduino import FakeArduino
+
+from WaveGeneratorArduino import WaveGeneratorArduino, FakeWaveGeneratorArduino
 
 # Constants
 DAQ_INTERVAL_MS = 10  # 10 [ms]
@@ -44,40 +43,6 @@ DEBUG = False
 print(f"{qtpy.API_NAME:9s} {qtpy.QT_VERSION}")
 
 # ------------------------------------------------------------------------------
-#   WaveGeneratorArduino
-# ------------------------------------------------------------------------------
-
-
-class WaveGeneratorArduino(Arduino):
-    """Provides higher-level general I/O methods for communicating with an
-    Arduino that is programmed as a wave generator."""
-
-    class State:
-        """Reflects the actual readings, parsed into separate variables, of the
-        wave generator Arduino.
-        """
-
-        time = np.nan  # [s]
-        time_0 = np.nan  # [s]
-        reading_1 = np.nan  # [arbitrary units]
-
-    def __init__(
-        self,
-        name="Ard",
-        long_name="Arduino",
-        connect_to_specific_ID="Wave generator",
-    ):
-        super().__init__(
-            name=name,
-            long_name=long_name,
-            connect_to_specific_ID=connect_to_specific_ID,
-        )
-
-        # Container for the process and measurement variables
-        self.state = self.State
-
-
-# ------------------------------------------------------------------------------
 #   WaveGeneratorArduino_qdev
 # ------------------------------------------------------------------------------
 
@@ -88,7 +53,7 @@ class WaveGeneratorArduino_qdev(QDeviceIO):
 
     def __init__(
         self,
-        dev: Union[WaveGeneratorArduino, FakeArduino],
+        dev: Union[WaveGeneratorArduino, FakeWaveGeneratorArduino],
         DAQ_interval_ms=DAQ_INTERVAL_MS,
         DAQ_timer_type=QtCore.Qt.TimerType.PreciseTimer,
         critical_not_alive_count=1,
@@ -109,13 +74,13 @@ class WaveGeneratorArduino_qdev(QDeviceIO):
         self.create_worker_jobs(debug=debug)
 
     def set_waveform_to_sine(self):
-        self.send(self.dev.write, "sine")
+        self.send(self.dev.set_waveform_to_sine)
 
     def set_waveform_to_square(self):
-        self.send(self.dev.write, "square")
+        self.send(self.dev.set_waveform_to_square)
 
     def set_waveform_to_sawtooth(self):
-        self.send(self.dev.write, "sawtooth")
+        self.send(self.dev.set_waveform_to_sawtooth)
 
     # --------------------------------------------------------------------------
     #   DAQ_function
@@ -173,7 +138,7 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
 
     if SIMULATE_ARDUINO:
-        ard = FakeArduino()
+        ard = FakeWaveGeneratorArduino()
     else:
         ard = WaveGeneratorArduino()
 

@@ -12,13 +12,14 @@ the place.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "30-05-2024"
-__version__ = "8.4"
+__date__ = "11-06-2024"
+__version__ = "9.0"
 # pylint: disable=missing-function-docstring, unnecessary-lambda
 
 import os
 import sys
 import time
+from typing import Union
 
 import qtpy
 from qtpy import QtCore, QtGui, QtWidgets as QtWid
@@ -33,8 +34,7 @@ from dvg_pyqtgraph_threadsafe import HistoryChartCurve, PlotManager
 from dvg_pyqt_filelogger import FileLogger
 import dvg_pyqt_controls as controls
 
-from dvg_devices.Arduino_protocol_serial import Arduino
-from dvg_fakearduino import FakeArduino
+from WaveGeneratorArduino import WaveGeneratorArduino, FakeWaveGeneratorArduino
 
 # fmt: off
 # Constants
@@ -76,6 +76,18 @@ else:
 pg.setConfigOption("foreground", "#EEE")
 
 # ------------------------------------------------------------------------------
+#   Globals for keeping track of the obtained DAQ rate in singlethreaded mode
+# ------------------------------------------------------------------------------
+
+# The obtained DAQ rate is normally being tracked via the multithreaded
+# `QDeviceIO` instance, but because we are demoing singlethreaded performance we
+# use these globals instead.
+update_counter_DAQ = 0
+obtained_DAQ_rate_Hz = np.nan
+QET_rate = QtCore.QElapsedTimer()
+rate_accumulator = 0
+
+# ------------------------------------------------------------------------------
 #   current_date_time_strings
 # ------------------------------------------------------------------------------
 
@@ -89,52 +101,6 @@ def current_date_time_strings():
 
 
 # ------------------------------------------------------------------------------
-#   WaveGeneratorArduino
-# ------------------------------------------------------------------------------
-
-
-class WaveGeneratorArduino(Arduino):
-    """Provides higher-level general I/O methods for communicating with an
-    Arduino that is programmed as a wave generator."""
-
-    class State:
-        """Reflects the actual readings, parsed into separate variables, of the
-        wave generator Arduino.
-        """
-
-        time = np.nan  # [s]
-        reading_1 = np.nan  # [arbitrary units]
-
-        # Keep track of the obtained DAQ rate. Only needed for the singlethread
-        # demo C.
-        update_counter_DAQ = 0
-        obtained_DAQ_rate_Hz = np.nan
-        QET_rate = QtCore.QElapsedTimer()
-        rate_accumulator = 0
-
-    def __init__(
-        self,
-        name="Ard",
-        long_name="Arduino",
-        connect_to_specific_ID="Wave generator",
-    ):
-        super().__init__(
-            name=name,
-            long_name=long_name,
-            connect_to_specific_ID=connect_to_specific_ID,
-        )
-
-        # Container for the process and measurement variables
-        self.state = self.State
-
-        # Mutex for proper multithreading. If the state variables are not
-        # atomic or thread-safe, you should lock and unlock this mutex for each
-        # read and write operation. In this demo we don't need it, but I keep it
-        # as reminder.
-        self.mutex = QtCore.QMutex()
-
-
-# ------------------------------------------------------------------------------
 #   MainWindow
 # ------------------------------------------------------------------------------
 
@@ -142,7 +108,7 @@ class WaveGeneratorArduino(Arduino):
 class MainWindow(QtWid.QWidget):
     def __init__(
         self,
-        dev: WaveGeneratorArduino,
+        dev: Union[WaveGeneratorArduino, FakeWaveGeneratorArduino],
         qlog: FileLogger,
         parent=None,
         **kwargs,
@@ -289,12 +255,12 @@ class MainWindow(QtWid.QWidget):
 
         # 'Wave type'
         self.qpbt_wave_sine = QtWid.QPushButton("Sine")
-        self.qpbt_wave_sine.clicked.connect(lambda: self.dev.write("sine"))
+        self.qpbt_wave_sine.clicked.connect(self.dev.set_waveform_to_sine)
         self.qpbt_wave_square = QtWid.QPushButton("Square")
-        self.qpbt_wave_square.clicked.connect(lambda: self.dev.write("square"))
+        self.qpbt_wave_square.clicked.connect(self.dev.set_waveform_to_square)
         self.qpbt_wave_sawtooth = QtWid.QPushButton("Sawtooth")
         self.qpbt_wave_sawtooth.clicked.connect(
-            lambda: self.dev.write("sawtooth")
+            self.dev.set_waveform_to_sawtooth
         )
 
         # fmt: off
@@ -376,8 +342,8 @@ class MainWindow(QtWid.QWidget):
         state = self.dev.state  # Shorthand
 
         self.qlbl_cur_date_time.setText(f"{str_cur_date}    {str_cur_time}")
-        self.qlbl_update_counter.setText(f"{state.update_counter_DAQ}")
-        self.qlbl_DAQ_rate.setText(f"DAQ: {state.obtained_DAQ_rate_Hz:.1f} Hz")
+        self.qlbl_update_counter.setText(f"{update_counter_DAQ}")
+        self.qlbl_DAQ_rate.setText(f"DAQ: {obtained_DAQ_rate_Hz:.1f} Hz")
         self.qlbl_recording_time.setText(
             f"REC: {self.qlog.pretty_elapsed()}"
             if self.qlog.is_recording()
@@ -415,7 +381,7 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
 
     if SIMULATE_ARDUINO:
-        ard = FakeArduino()
+        ard = FakeWaveGeneratorArduino()
     else:
         ard = WaveGeneratorArduino()
 
@@ -471,27 +437,28 @@ if __name__ == "__main__":
 
     @Slot()
     def DAQ_function():
+        global update_counter_DAQ, QET_rate, rate_accumulator
+        global obtained_DAQ_rate_Hz
+
         state = ard.state  # Shorthand
-        state.update_counter_DAQ += 1
+        update_counter_DAQ += 1
 
         # Keep track of the obtained DAQ rate
-        if not state.QET_rate.isValid():
-            state.QET_rate.start()
+        if not QET_rate.isValid():
+            QET_rate.start()
         else:
             # Obtained DAQ rate
-            state.rate_accumulator += 1
-            dT = state.QET_rate.elapsed()
+            rate_accumulator += 1
+            dT = QET_rate.elapsed()
 
             if dT >= 1000:  # Evaluate every N elapsed milliseconds. Hard-coded.
-                state.QET_rate.restart()
+                QET_rate.restart()
                 try:
-                    state.obtained_DAQ_rate_Hz = (
-                        state.rate_accumulator / dT * 1e3
-                    )
+                    obtained_DAQ_rate_Hz = rate_accumulator / dT * 1e3
                 except ZeroDivisionError:
-                    state.obtained_DAQ_rate_Hz = np.nan
+                    obtained_DAQ_rate_Hz = np.nan
 
-                state.rate_accumulator = 0
+                rate_accumulator = 0
 
         # Query the Arduino for its state
         success, tmp_state = ard.query_ascii_values("?", delimiter="\t")
@@ -514,8 +481,13 @@ if __name__ == "__main__":
             )
             sys.exit(0)
 
-        if USE_PC_TIME:
-            state.time = time.perf_counter()
+        # Use Arduino time or PC time?
+        now = time.perf_counter() if USE_PC_TIME else state.time
+        if update_counter_DAQ == 1:
+            state.time_0 = now
+            state.time = 0
+        else:
+            state.time = now - state.time_0
 
         # Add readings to chart histories
         window.history_chart_curve.appendData(state.time, state.reading_1)

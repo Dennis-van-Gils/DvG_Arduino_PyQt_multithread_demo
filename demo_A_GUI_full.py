@@ -6,8 +6,8 @@ data using PyQt/PySide and PyQtGraph.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
-__date__ = "30-05-2024"
-__version__ = "8.4"
+__date__ = "11-06-2024"
+__version__ = "9.0"
 # pylint: disable=missing-function-docstring, unnecessary-lambda
 
 import os
@@ -20,17 +20,15 @@ from qtpy import QtCore, QtGui, QtWidgets as QtWid
 from qtpy.QtCore import Slot  # type: ignore
 
 import psutil
-import numpy as np
 import pyqtgraph as pg
 
 from dvg_debug_functions import tprint, dprint, print_fancy_traceback as pft
 from dvg_pyqtgraph_threadsafe import HistoryChartCurve, PlotManager
 from dvg_pyqt_filelogger import FileLogger
 import dvg_pyqt_controls as controls
-
-from dvg_devices.Arduino_protocol_serial import Arduino
 from dvg_qdeviceio import QDeviceIO, DAQ_TRIGGER
-from dvg_fakearduino import FakeArduino
+
+from WaveGeneratorArduino import WaveGeneratorArduino, FakeWaveGeneratorArduino
 
 # fmt: off
 # Constants
@@ -86,45 +84,6 @@ def current_date_time_strings():
 
 
 # ------------------------------------------------------------------------------
-#   WaveGeneratorArduino
-# ------------------------------------------------------------------------------
-
-
-class WaveGeneratorArduino(Arduino):
-    """Provides higher-level general I/O methods for communicating with an
-    Arduino that is programmed as a wave generator."""
-
-    class State:
-        """Reflects the actual readings, parsed into separate variables, of the
-        wave generator Arduino.
-        """
-
-        time = np.nan  # [s]
-        reading_1 = np.nan  # [arbitrary units]
-
-    def __init__(
-        self,
-        name="Ard",
-        long_name="Arduino",
-        connect_to_specific_ID="Wave generator",
-    ):
-        super().__init__(
-            name=name,
-            long_name=long_name,
-            connect_to_specific_ID=connect_to_specific_ID,
-        )
-
-        # Container for the process and measurement variables
-        self.state = self.State
-
-        # Mutex for proper multithreading. If the state variables are not
-        # atomic or thread-safe, you should lock and unlock this mutex for each
-        # read and write operation. In this demo we don't need it, but I keep it
-        # as reminder.
-        self.mutex = QtCore.QMutex()
-
-
-# ------------------------------------------------------------------------------
 #   WaveGeneratorArduino_qdev
 # ------------------------------------------------------------------------------
 
@@ -135,7 +94,7 @@ class WaveGeneratorArduino_qdev(QDeviceIO):
 
     def __init__(
         self,
-        dev: Union[WaveGeneratorArduino, FakeArduino],
+        dev: Union[WaveGeneratorArduino, FakeWaveGeneratorArduino],
         DAQ_interval_ms=DAQ_INTERVAL_MS,
         DAQ_timer_type=QtCore.Qt.TimerType.PreciseTimer,
         critical_not_alive_count=1,
@@ -166,13 +125,13 @@ class WaveGeneratorArduino_qdev(QDeviceIO):
             self.worker_DAQ.DAQ_function = None
 
     def set_waveform_to_sine(self):
-        self.send(self.dev.write, "sine")
+        self.send(self.dev.set_waveform_to_sine)
 
     def set_waveform_to_square(self):
-        self.send(self.dev.write, "square")
+        self.send(self.dev.set_waveform_to_square)
 
     def set_waveform_to_sawtooth(self):
-        self.send(self.dev.write, "sawtooth")
+        self.send(self.dev.set_waveform_to_sawtooth)
 
     # --------------------------------------------------------------------------
     #   DAQ_function
@@ -202,8 +161,13 @@ class WaveGeneratorArduino_qdev(QDeviceIO):
             )
             return False
 
-        if USE_PC_TIME:
-            self.dev.state.time = time.perf_counter()
+        # Use Arduino time or PC time?
+        now = time.perf_counter() if USE_PC_TIME else self.dev.state.time
+        if self.update_counter_DAQ == 1:
+            self.dev.state.time_0 = now
+            self.dev.state.time = 0
+        else:
+            self.dev.state.time = now - self.dev.state.time_0
 
         # Return success
         return True
@@ -516,7 +480,7 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
 
     if SIMULATE_ARDUINO:
-        ard = FakeArduino()
+        ard = FakeWaveGeneratorArduino()
     else:
         ard = WaveGeneratorArduino()
 
