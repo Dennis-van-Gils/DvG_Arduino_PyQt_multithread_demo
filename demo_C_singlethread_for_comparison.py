@@ -20,6 +20,7 @@ __version__ = "9.0"
 import os
 import sys
 import time
+import datetime
 from typing import Union
 
 import qtpy
@@ -30,7 +31,7 @@ import psutil
 import numpy as np
 import pyqtgraph as pg
 
-from dvg_debug_functions import tprint, dprint, print_fancy_traceback as pft
+from dvg_debug_functions import tprint
 from dvg_pyqtgraph_threadsafe import HistoryChartCurve, PlotManager
 from dvg_pyqt_filelogger import FileLogger
 import dvg_pyqt_controls as controls
@@ -90,19 +91,6 @@ update_counter_DAQ = 0
 obtained_DAQ_rate_Hz = np.nan
 QET_rate = QtCore.QElapsedTimer()
 rate_accumulator = 0
-
-# ------------------------------------------------------------------------------
-#   current_date_time_strings
-# ------------------------------------------------------------------------------
-
-
-def current_date_time_strings():
-    cur_date_time = QtCore.QDateTime.currentDateTime()
-    return (
-        cur_date_time.toString("dd-MM-yyyy"),  # Date
-        cur_date_time.toString("HH:mm:ss"),  # Time
-    )
-
 
 # ------------------------------------------------------------------------------
 #   MainWindow
@@ -348,10 +336,11 @@ class MainWindow(QtWid.QWidget):
 
     @Slot()
     def update_GUI(self):
-        str_cur_date, str_cur_time = current_date_time_strings()
         state = self.dev.state  # Shorthand
 
-        self.qlbl_cur_date_time.setText(f"{str_cur_date}    {str_cur_time}")
+        self.qlbl_cur_date_time.setText(
+            f"{datetime.datetime.now().strftime('%d-%m-%Y    %H:%M:%S')}"
+        )
         self.qlbl_update_counter.setText(f"{update_counter_DAQ}")
         self.qlbl_DAQ_rate.setText(f"DAQ: {obtained_DAQ_rate_Hz:.1f} Hz")
         self.qlbl_recording_time.setText(
@@ -370,6 +359,7 @@ class MainWindow(QtWid.QWidget):
     def update_chart(self):
         if not self.allow_GUI_update_of_readings:
             return
+
         if DEBUG:
             tprint("update_curve")
 
@@ -453,12 +443,14 @@ if __name__ == "__main__":
 
     @Slot()
     def DAQ_function():
+        """Perform a single data acquisition and append this data to the chart
+        and log.
+        """
+        # Keep track of the obtained DAQ rate
         global update_counter_DAQ, rate_accumulator, obtained_DAQ_rate_Hz
 
-        state = ard.state  # Shorthand
         update_counter_DAQ += 1
 
-        # Keep track of the obtained DAQ rate
         if not QET_rate.isValid():
             QET_rate.start()
         else:
@@ -475,37 +467,23 @@ if __name__ == "__main__":
 
                 rate_accumulator = 0
 
-        # Query the Arduino for its state
-        success, tmp_state = ard.query_ascii_values("?", delimiter="\t")
-        if not success:
-            str_cur_date, str_cur_time = current_date_time_strings()
-            dprint(
-                f"'{ard.name}' reports IOError @ {str_cur_date} {str_cur_time}"
-            )
-            sys.exit(0)
-
-        # Parse readings into separate state variables
-        try:
-            state.time, state.reading_1 = tmp_state
-            state.time /= 1000
-        except Exception as err:  # pylint: disable=broad-except
-            pft(err, 3)
-            str_cur_date, str_cur_time = current_date_time_strings()
-            dprint(
-                f"'{ard.name}' reports IOError @ {str_cur_date} {str_cur_time}"
-            )
+        # Query the Arduino for new readings, parse them and update the
+        # corresponding variables of its `state` member.
+        if not ard.perform_DAQ():
             sys.exit(0)
 
         # Use Arduino time or PC time?
-        now = time.perf_counter() if USE_PC_TIME else state.time
+        now = time.perf_counter() if USE_PC_TIME else ard.state.time
         if update_counter_DAQ == 1:
-            state.time_0 = now
-            state.time = 0
+            ard.state.time_0 = now
+            ard.state.time = 0
         else:
-            state.time = now - state.time_0
+            ard.state.time = now - ard.state.time_0
 
         # Add readings to chart history
-        window.history_chart_curve.appendData(state.time, state.reading_1)
+        window.history_chart_curve.appendData(
+            ard.state.time, ard.state.reading_1
+        )
 
         # Add readings to the log
         log.update()

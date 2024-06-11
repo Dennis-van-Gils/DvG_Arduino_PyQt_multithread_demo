@@ -16,7 +16,8 @@ __version__ = "9.0"
 import os
 import sys
 import time
-from typing import Union
+import datetime
+from typing import Union, Callable
 import signal  # To catch CTRL+C and quit
 
 import qtpy
@@ -25,7 +26,6 @@ from qtpy.QtCore import Slot  # type: ignore
 
 import psutil
 
-from dvg_debug_functions import dprint, print_fancy_traceback as pft
 from dvg_qdeviceio import QDeviceIO, DAQ_TRIGGER
 
 from WaveGeneratorArduino import WaveGeneratorArduino, FakeWaveGeneratorArduino
@@ -58,7 +58,8 @@ class WaveGeneratorArduino_qdev(QDeviceIO):
     def __init__(
         self,
         dev: Union[WaveGeneratorArduino, FakeWaveGeneratorArduino],
-        DAQ_interval_ms=DAQ_INTERVAL_MS,
+        DAQ_function: Union[Callable[[], bool], None] = None,
+        DAQ_interval_ms=10,
         DAQ_timer_type=QtCore.Qt.TimerType.PreciseTimer,
         critical_not_alive_count=1,
         debug=False,
@@ -69,7 +70,7 @@ class WaveGeneratorArduino_qdev(QDeviceIO):
 
         self.create_worker_DAQ(
             DAQ_trigger=DAQ_TRIGGER.SINGLE_SHOT_WAKE_UP,
-            DAQ_function=self.DAQ_function,
+            DAQ_function=DAQ_function,
             DAQ_interval_ms=DAQ_interval_ms,
             DAQ_timer_type=DAQ_timer_type,
             critical_not_alive_count=critical_not_alive_count,
@@ -78,47 +79,19 @@ class WaveGeneratorArduino_qdev(QDeviceIO):
         self.create_worker_jobs(debug=debug)
 
     def request_set_waveform_to_sine(self):
+        """Request sending out a new instruction to the Arduino to change to a
+        sine wave."""
         self.send(self.dev.set_waveform_to_sine)
 
     def request_set_waveform_to_square(self):
+        """Request sending out a new instruction to the Arduino to change to a
+        square wave."""
         self.send(self.dev.set_waveform_to_square)
 
     def request_set_waveform_to_sawtooth(self):
+        """Request sending out a new instruction to the Arduino to change to a
+        sawtooth wave."""
         self.send(self.dev.set_waveform_to_sawtooth)
-
-    # --------------------------------------------------------------------------
-    #   DAQ_function
-    # --------------------------------------------------------------------------
-
-    def DAQ_function(self) -> bool:
-        # Query the Arduino for its state
-        success, tmp_state = self.dev.query_ascii_values("?", delimiter="\t")
-        if not success:
-            dprint(f"'{self.dev.name}' reports IOError")
-            return False
-
-        # Parse readings into separate state variables
-        try:
-            self.dev.state.time, self.dev.state.reading_1 = tmp_state
-            self.dev.state.time /= 1000
-        except Exception as err:  # pylint: disable=broad-except
-            pft(err, 3)
-            dprint(f"'{self.dev.name}' reports IOError")
-            return False
-
-        # Use Arduino time or PC time?
-        now = time.perf_counter() if USE_PC_TIME else self.dev.state.time
-        if self.update_counter_DAQ == 1:
-            self.dev.state.time_0 = now
-            self.dev.state.time = 0
-        else:
-            self.dev.state.time = now - self.dev.state.time_0
-
-        # For demo purposes: Quit automatically after N updates
-        if self.update_counter_DAQ > 1000:
-            app.quit()
-
-        return True
 
 
 # ------------------------------------------------------------------------------
@@ -164,9 +137,38 @@ if __name__ == "__main__":
     #   Set up multithreaded communication with the Arduino
     # --------------------------------------------------------------------------
 
+    def DAQ_function() -> bool:
+        """Perform a single data acquisition.
+
+        Returns: True if successful, False otherwise.
+        """
+        # Query the Arduino for new readings, parse them and update the
+        # corresponding variables of its `state` member.
+        if not ard.perform_DAQ():
+            return False
+
+        # Use Arduino time or PC time?
+        now = time.perf_counter() if USE_PC_TIME else ard.state.time
+        if ard_qdev.update_counter_DAQ == 1:
+            ard.state.time_0 = now
+            ard.state.time = 0
+        else:
+            ard.state.time = now - ard.state.time_0
+
+        # For demo purposes: Quit automatically after N updates
+        if ard_qdev.update_counter_DAQ > 1000:
+            app.quit()
+
+        return True
+
     # Here, `WaveGeneratorArduino_qdev` uses `DAQ_TRIGGER.SINGLE_SHOT_WAKE_UP`
     # acting as a slave device.
-    ard_qdev = WaveGeneratorArduino_qdev(dev=ard, debug=DEBUG)
+    ard_qdev = WaveGeneratorArduino_qdev(
+        dev=ard,
+        DAQ_function=DAQ_function,
+        DAQ_interval_ms=DAQ_INTERVAL_MS,
+        debug=DEBUG,
+    )
 
     # `MasterSync` will generate the clock to which `WaveGeneratorArduino_qdev`
     # will be slaved to.
@@ -219,7 +221,11 @@ if __name__ == "__main__":
 
     @Slot()
     def notify_connection_lost():
-        print("\nCRITICAL ERROR: Lost connection to Arduino.")
+        str_msg = (
+            f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+            "Lost connection to Arduino."
+        )
+        print(f"\nCRITICAL ERROR @ {str_msg}")
         app.quit()
 
     @Slot()

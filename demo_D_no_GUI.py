@@ -14,6 +14,7 @@ __version__ = "9.0"
 import os
 import sys
 import time
+import datetime
 import signal  # To catch CTRL+C and quit
 
 import qtpy
@@ -21,8 +22,6 @@ from qtpy import QtCore
 from qtpy.QtCore import Slot  # type: ignore
 
 import psutil
-
-from dvg_debug_functions import dprint, print_fancy_traceback as pft
 
 from WaveGeneratorArduino import WaveGeneratorArduino, FakeWaveGeneratorArduino
 from WaveGeneratorArduino_qdev import WaveGeneratorArduino_qdev
@@ -86,19 +85,13 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
 
     def DAQ_function() -> bool:
-        # Query the Arduino for its state
-        success, tmp_state = ard.query_ascii_values("?", delimiter="\t")
-        if not success:
-            dprint(f"'{ard.name}' reports IOError")
-            return False
+        """Perform a single data acquisition.
 
-        # Parse readings into separate state variables
-        try:
-            ard.state.time, ard.state.reading_1 = tmp_state
-            ard.state.time /= 1000
-        except Exception as err:  # pylint: disable=broad-except
-            pft(err, 3)
-            dprint(f"'{ard.name}' reports IOError")
+        Returns: True if successful, False otherwise.
+        """
+        # Query the Arduino for new readings, parse them and update the
+        # corresponding variables of its `state` member.
+        if not ard.perform_DAQ():
             return False
 
         # Use Arduino time or PC time?
@@ -150,7 +143,11 @@ if __name__ == "__main__":
 
     @Slot()
     def notify_connection_lost():
-        print("\nCRITICAL ERROR: Lost connection to Arduino.")
+        str_msg = (
+            f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+            "Lost connection to Arduino."
+        )
+        print(f"\nCRITICAL ERROR @ {str_msg}")
         app.quit()
 
     @Slot()

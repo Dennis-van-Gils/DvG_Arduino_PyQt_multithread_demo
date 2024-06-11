@@ -13,6 +13,7 @@ __version__ = "9.0"
 import os
 import sys
 import time
+import datetime
 
 import qtpy
 from qtpy import QtCore, QtGui, QtWidgets as QtWid
@@ -21,7 +22,7 @@ from qtpy.QtCore import Slot  # type: ignore
 import psutil
 import pyqtgraph as pg
 
-from dvg_debug_functions import tprint, dprint, print_fancy_traceback as pft
+from dvg_debug_functions import tprint
 from dvg_pyqtgraph_threadsafe import HistoryChartCurve, PlotManager
 from dvg_pyqt_filelogger import FileLogger
 import dvg_pyqt_controls as controls
@@ -71,19 +72,6 @@ else:
 # Global pyqtgraph configuration
 # pg.setConfigOptions(leftButtonPan=False)
 pg.setConfigOption("foreground", "#EEE")
-
-# ------------------------------------------------------------------------------
-#   current_date_time_strings
-# ------------------------------------------------------------------------------
-
-
-def current_date_time_strings():
-    cur_date_time = QtCore.QDateTime.currentDateTime()
-    return (
-        cur_date_time.toString("dd-MM-yyyy"),  # Date
-        cur_date_time.toString("HH:mm:ss"),  # Time
-    )
-
 
 # ------------------------------------------------------------------------------
 #   MainWindow
@@ -354,10 +342,11 @@ class MainWindow(QtWid.QWidget):
 
     @Slot()
     def update_GUI(self):
-        str_cur_date, str_cur_time = current_date_time_strings()
         state = self.qdev.dev.state  # Shorthand
 
-        self.qlbl_cur_date_time.setText(f"{str_cur_date}    {str_cur_time}")
+        self.qlbl_cur_date_time.setText(
+            f"{datetime.datetime.now().strftime('%d-%m-%Y    %H:%M:%S')}"
+        )
         self.qlbl_update_counter.setText(f"{self.qdev.update_counter_DAQ}")
         self.qlbl_DAQ_rate.setText(
             f"DAQ: {self.qdev.obtained_DAQ_rate_Hz:.1f} Hz"
@@ -435,27 +424,14 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
 
     def DAQ_function() -> bool:
-        # Query the Arduino for its state
-        success, tmp_state = ard.query_ascii_values("?", delimiter="\t")
-        if not success:
-            str_cur_date, str_cur_time = current_date_time_strings()
-            dprint(
-                f"'{ard.name}' reports IOError @ "
-                f"{str_cur_date} {str_cur_time}"
-            )
-            return False
+        """Perform a single data acquisition and append this data to the chart
+        and log.
 
-        # Parse readings into separate state variables
-        try:
-            ard.state.time, ard.state.reading_1 = tmp_state
-            ard.state.time /= 1000
-        except Exception as err:  # pylint: disable=broad-except
-            pft(err, 3)
-            str_cur_date, str_cur_time = current_date_time_strings()
-            dprint(
-                f"'{ard.name}' reports IOError @ "
-                f"{str_cur_date} {str_cur_time}"
-            )
+        Returns: True if successful, False otherwise.
+        """
+        # Query the Arduino for new readings, parse them and update the
+        # corresponding variables of its `state` member.
+        if not ard.perform_DAQ():
             return False
 
         # Use Arduino time or PC time?
@@ -474,7 +450,6 @@ if __name__ == "__main__":
         # Add readings to the log
         log.update()
 
-        # Return success
         return True
 
     ard_qdev = WaveGeneratorArduino_qdev(
@@ -535,8 +510,10 @@ if __name__ == "__main__":
         stop_running()
 
         window.qlbl_title.setText("! ! !    LOST CONNECTION    ! ! !")
-        str_cur_date, str_cur_time = current_date_time_strings()
-        str_msg = f"{str_cur_date} {str_cur_time}\nLost connection to Arduino."
+        str_msg = (
+            f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+            "Lost connection to Arduino."
+        )
         print(f"\nCRITICAL ERROR @ {str_msg}")
         reply = QtWid.QMessageBox.warning(
             window, "CRITICAL ERROR", str_msg, QtWid.QMessageBox.Ok

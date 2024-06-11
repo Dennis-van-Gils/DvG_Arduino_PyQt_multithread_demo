@@ -21,7 +21,6 @@ from qtpy.QtCore import Slot  # type: ignore
 import psutil
 import pyqtgraph as pg
 
-from dvg_debug_functions import dprint, print_fancy_traceback as pft
 from dvg_pyqtgraph_threadsafe import HistoryChartCurve
 
 from WaveGeneratorArduino import WaveGeneratorArduino, FakeWaveGeneratorArduino
@@ -68,19 +67,6 @@ else:
 # Global pyqtgraph configuration
 # pg.setConfigOptions(leftButtonPan=False)
 pg.setConfigOption("foreground", "#EEE")
-
-# ------------------------------------------------------------------------------
-#   current_date_time_strings
-# ------------------------------------------------------------------------------
-
-
-def current_date_time_strings():
-    cur_date_time = QtCore.QDateTime.currentDateTime()
-    return (
-        cur_date_time.toString("dd-MM-yyyy"),  # Date
-        cur_date_time.toString("HH:mm:ss"),  # Time
-    )
-
 
 # ------------------------------------------------------------------------------
 #   MainWindow
@@ -173,27 +159,13 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
 
     def DAQ_function() -> bool:
-        # Query the Arduino for its state
-        success, tmp_state = ard.query_ascii_values("?", delimiter="\t")
-        if not success:
-            str_cur_date, str_cur_time = current_date_time_strings()
-            dprint(
-                f"'{ard.name}' reports IOError @ "
-                f"{str_cur_date} {str_cur_time}"
-            )
-            return False
+        """Perform a single data acquisition and append this data to the chart.
 
-        # Parse readings into separate state variables
-        try:
-            ard.state.time, ard.state.reading_1 = tmp_state
-            ard.state.time /= 1000
-        except Exception as err:  # pylint: disable=broad-except
-            pft(err, 3)
-            str_cur_date, str_cur_time = current_date_time_strings()
-            dprint(
-                f"'{ard.name}' reports IOError @ "
-                f"{str_cur_date} {str_cur_time}"
-            )
+        Returns: True if successful, False otherwise.
+        """
+        # Query the Arduino for new readings, parse them and update the
+        # corresponding variables of its `state` member.
+        if not ard.perform_DAQ():
             return False
 
         # Use Arduino time or PC time?
@@ -209,7 +181,6 @@ if __name__ == "__main__":
             ard.state.time, ard.state.reading_1
         )
 
-        # Return success
         return True
 
     ard_qdev = WaveGeneratorArduino_qdev(

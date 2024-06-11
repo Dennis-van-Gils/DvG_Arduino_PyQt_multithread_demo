@@ -9,10 +9,12 @@ __date__ = "11-06-2024"
 __version__ = "9.0"
 
 import time
+import datetime
 
 from qtpy import QtCore
 import numpy as np
 
+from dvg_debug_functions import dprint, print_fancy_traceback as pft
 from dvg_devices.Arduino_protocol_serial import Arduino
 
 # ------------------------------------------------------------------------------
@@ -65,6 +67,35 @@ class WaveGeneratorArduino(Arduino):
         """Send the instruction to the Arduino to change to a sawtooth wave."""
         self.write("sawtooth")
 
+    def perform_DAQ(self) -> bool:
+        """Query the Arduino for new readings, parse them and update the
+        corresponding variables of its `state` member.
+
+        Returns: True if successful, False otherwise.
+        """
+        # Query the Arduino for its state
+        success, reply = self.query_ascii_values("?", delimiter="\t")
+        if not success:
+            dprint(
+                f"'{self.name}' reports IOError @ "
+                f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            )
+            return False
+
+        # Parse readings into separate state variables
+        try:
+            self.state.time, self.state.reading_1 = reply
+            self.state.time /= 1000
+        except Exception as err:  # pylint: disable=broad-except
+            pft(err, 3)
+            dprint(
+                f"'{self.name}' reports IOError @ "
+                f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            )
+            return False
+
+        return True
+
 
 # ------------------------------------------------------------------------------
 #   FakeWaveGeneratorArduino
@@ -114,23 +145,25 @@ class FakeWaveGeneratorArduino:
         """Send the instruction to the Arduino to change to a sine wave."""
         self.wave_type = "sawtooth"
 
-    def query_ascii_values(self, *args, **kwargs):
-        """Query the Arduino for new readings and return them as a list."""
+    def perform_DAQ(self) -> bool:
+        """Query the Arduino for new readings, parse them and update the
+        corresponding variables of its `state` member.
+
+        Returns: True if successful, False otherwise.
+        """
         t = time.perf_counter()
 
         if self.wave_type == "sine":
             value = np.sin(2 * np.pi * self.wave_freq * t)
-
         elif self.wave_type == "square":
             value = 1 if np.mod(self.wave_freq * t, 1.0) > 0.5 else -1
-
         elif self.wave_type == "sawtooth":
             value = 2 * np.mod(self.wave_freq * t, 1.0) - 1
 
-        success = True
-        readings = [t * 1000, value]
+        self.state.time = t * 1000
+        self.state.reading_1 = value
 
-        return success, readings
+        return True
 
     def close(self):
         """Close the serial connection to the Arduino."""
