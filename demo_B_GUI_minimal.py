@@ -101,9 +101,6 @@ class WaveGeneratorArduino_qdev(QDeviceIO):
         super().__init__(dev, **kwargs)  # Pass kwargs onto QtCore.QObject()
         self.dev: WaveGeneratorArduino  # Enforce type: removes `_NoDevice()`
 
-        # Pause/resume mechanism
-        self.DAQ_is_enabled = True
-
         self.create_worker_DAQ(
             DAQ_trigger=DAQ_TRIGGER.INTERNAL_TIMER,
             DAQ_function=self.DAQ_function,
@@ -113,13 +110,6 @@ class WaveGeneratorArduino_qdev(QDeviceIO):
             debug=debug,
         )
         self.create_worker_jobs(debug=debug)
-
-    def set_DAQ_enabled(self, state: bool):
-        self.DAQ_is_enabled = state
-        if self.DAQ_is_enabled:
-            self.worker_DAQ.DAQ_function = self.DAQ_function
-        else:
-            self.worker_DAQ.DAQ_function = None
 
     def set_waveform_to_sine(self):
         self.send(self.dev.set_waveform_to_sine)

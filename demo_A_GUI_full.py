@@ -104,9 +104,6 @@ class WaveGeneratorArduino_qdev(QDeviceIO):
         super().__init__(dev, **kwargs)  # Pass kwargs onto QtCore.QObject()
         self.dev: WaveGeneratorArduino  # Enforce type: removes `_NoDevice()`
 
-        # Pause/resume mechanism
-        self.DAQ_is_enabled = True
-
         self.create_worker_DAQ(
             DAQ_trigger=DAQ_TRIGGER.INTERNAL_TIMER,
             DAQ_function=self.DAQ_function,
@@ -116,13 +113,6 @@ class WaveGeneratorArduino_qdev(QDeviceIO):
             debug=debug,
         )
         self.create_worker_jobs(debug=debug)
-
-    def set_DAQ_enabled(self, state: bool):
-        self.DAQ_is_enabled = state
-        if self.DAQ_is_enabled:
-            self.worker_DAQ.DAQ_function = self.DAQ_function
-        else:
-            self.worker_DAQ.DAQ_function = None
 
     def set_waveform_to_sine(self):
         self.send(self.dev.set_waveform_to_sine)
@@ -191,6 +181,9 @@ class MainWindow(QtWid.QWidget):
         self.qdev = qdev
         self.qdev.signal_DAQ_updated.connect(self.update_GUI)
         self.qlog = qlog
+
+        # Run/pause mechanism on updating the GUI and graphs
+        self.allow_GUI_update_of_readings = True
 
         self.setWindowTitle("Arduino & PyQt multithread demo")
         if USE_LARGER_TEXT:
@@ -431,7 +424,7 @@ class MainWindow(QtWid.QWidget):
     @Slot(bool)
     def process_qpbt_running(self, state: bool):
         self.qpbt_running.setText("Running" if state else "Paused")
-        self.qdev.set_DAQ_enabled(state)
+        self.allow_GUI_update_of_readings = state
 
     @Slot()
     def update_GUI(self):
@@ -448,11 +441,18 @@ class MainWindow(QtWid.QWidget):
             if self.qlog.is_recording()
             else ""
         )
+
+        if not self.allow_GUI_update_of_readings:
+            return
+
         self.qlin_reading_t.setText(f"{state.time:.3f}")
         self.qlin_reading_1.setText(f"{state.reading_1:.4f}")
 
     @Slot()
     def update_chart(self):
+        if not self.allow_GUI_update_of_readings:
+            return
+
         if DEBUG:
             tprint("update_curve")
 
@@ -544,13 +544,12 @@ if __name__ == "__main__":
 
     @Slot()
     def postprocess_DAQ_updated():
-        if ard_qdev.DAQ_is_enabled:
-            # Add readings to chart history
-            window.history_chart_curve.appendData(
-                ard.state.time, ard.state.reading_1
-            )
-            # Add readings to the log
-            log.update()
+        # Add readings to chart history
+        window.history_chart_curve.appendData(
+            ard.state.time, ard.state.reading_1
+        )
+        # Add readings to the log
+        log.update()
 
     # --------------------------------------------------------------------------
     #   Program termination routines
