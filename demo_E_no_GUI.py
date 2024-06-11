@@ -31,7 +31,8 @@ from dvg_qdeviceio import QDeviceIO, DAQ_TRIGGER
 from WaveGeneratorArduino import WaveGeneratorArduino, FakeWaveGeneratorArduino
 
 # Constants
-DAQ_INTERVAL_MS = 10  # 10 [ms]
+DAQ_INTERVAL_MS = 10
+"""[ms] Update interval for the data acquisition (DAQ)"""
 
 # Global flags
 USE_PC_TIME = True  # Use Arduino time or PC time?
@@ -50,8 +51,9 @@ print(f"{qtpy.API_NAME:9s} {qtpy.QT_VERSION}")
 
 
 class WaveGeneratorArduino_qdev(QDeviceIO):
-    """Manages multithreaded communication and periodical data acquisition for
-    a wave generator Arduino, referred to as the 'device'."""
+    """Manages multithreaded communication and periodical data acquisition
+    for an Arduino that is programmed as a wave generator, referred to as the
+    'device'."""
 
     def __init__(
         self,
@@ -75,13 +77,13 @@ class WaveGeneratorArduino_qdev(QDeviceIO):
         )
         self.create_worker_jobs(debug=debug)
 
-    def set_waveform_to_sine(self):
+    def request_set_waveform_to_sine(self):
         self.send(self.dev.set_waveform_to_sine)
 
-    def set_waveform_to_square(self):
+    def request_set_waveform_to_square(self):
         self.send(self.dev.set_waveform_to_square)
 
-    def set_waveform_to_sawtooth(self):
+    def request_set_waveform_to_sawtooth(self):
         self.send(self.dev.set_waveform_to_sawtooth)
 
     # --------------------------------------------------------------------------
@@ -238,5 +240,4 @@ if __name__ == "__main__":
     sync_qdev.start(DAQ_priority=QtCore.QThread.Priority.TimeCriticalPriority)
 
     app.aboutToQuit.connect(about_to_quit)
-
     sys.exit(app.exec())

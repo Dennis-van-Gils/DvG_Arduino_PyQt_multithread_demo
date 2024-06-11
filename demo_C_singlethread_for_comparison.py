@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Demonstration of singlethreaded real-time plotting and logging of live Arduino
-data using PyQt/PySide and PyQtGraph.
+"""Demonstration of singlethreaded real-time plotting and logging of live
+Arduino data using PyQt/PySide and PyQtGraph.
 
 NOTE: This demonstrates the bad case of what happens when both the acquisition
 and the plotting happen on the same thread. You should observe a drop in the
@@ -15,6 +15,7 @@ __url__ = "https://github.com/Dennis-van-Gils/DvG_Arduino_PyQt_multithread_demo"
 __date__ = "11-06-2024"
 __version__ = "9.0"
 # pylint: disable=missing-function-docstring, unnecessary-lambda
+# pylint: disable=global-statement
 
 import os
 import sys
@@ -36,13 +37,16 @@ import dvg_pyqt_controls as controls
 
 from WaveGeneratorArduino import WaveGeneratorArduino, FakeWaveGeneratorArduino
 
-# fmt: off
 # Constants
-DAQ_INTERVAL_MS    = 10  # 10 [ms]
-CHART_INTERVAL_MS  = 20  # 20 [ms]
-CHART_HISTORY_TIME = 10  # 10 [s]
+DAQ_INTERVAL_MS = 10
+"""[ms] Update interval for the data acquisition (DAQ)"""
+CHART_INTERVAL_MS = 20
+"""[ms] Update interval for the chart"""
+CHART_HISTORY_TIME = 10
+"""[s] History length of the chart"""
 
 # Global flags
+# fmt: off
 TRY_USING_OPENGL = True
 USE_PC_TIME      = True   # Use Arduino time or PC time?
 SIMULATE_ARDUINO = False  # Simulate an Arduino, instead?
@@ -117,6 +121,9 @@ class MainWindow(QtWid.QWidget):
 
         self.dev = dev
         self.qlog = qlog
+
+        # Run/pause mechanism on updating the GUI and graphs
+        self.allow_GUI_update_of_readings = True
 
         self.setWindowTitle("Arduino & PyQt singlethread demo")
         self.setGeometry(40, 60, 960, 660)
@@ -235,9 +242,7 @@ class MainWindow(QtWid.QWidget):
             "Running", checked=True
         )
         self.qpbt_running.clicked.connect(
-            lambda state: self.qpbt_running.setText(
-                "Running" if state else "Run"
-            )
+            lambda state: self.process_qpbt_running(state)
         )
 
         # fmt: off
@@ -336,6 +341,11 @@ class MainWindow(QtWid.QWidget):
     #   Handle controls
     # --------------------------------------------------------------------------
 
+    @Slot(bool)
+    def process_qpbt_running(self, state: bool):
+        self.qpbt_running.setText("Running" if state else "Paused")
+        self.allow_GUI_update_of_readings = state
+
     @Slot()
     def update_GUI(self):
         str_cur_date, str_cur_time = current_date_time_strings()
@@ -349,11 +359,17 @@ class MainWindow(QtWid.QWidget):
             if self.qlog.is_recording()
             else ""
         )
+
+        if not self.allow_GUI_update_of_readings:
+            return
+
         self.qlin_reading_t.setText(f"{state.time:.3f}")
         self.qlin_reading_1.setText(f"{state.reading_1:.4f}")
 
     @Slot()
     def update_chart(self):
+        if not self.allow_GUI_update_of_readings:
+            return
         if DEBUG:
             tprint("update_curve")
 
@@ -432,13 +448,12 @@ if __name__ == "__main__":
     )
 
     # --------------------------------------------------------------------------
-    #   Single-threaded DAQ function
+    #   Singlethreaded DAQ function
     # --------------------------------------------------------------------------
 
     @Slot()
     def DAQ_function():
-        global update_counter_DAQ, QET_rate, rate_accumulator
-        global obtained_DAQ_rate_Hz
+        global update_counter_DAQ, rate_accumulator, obtained_DAQ_rate_Hz
 
         state = ard.state  # Shorthand
         update_counter_DAQ += 1
@@ -489,10 +504,10 @@ if __name__ == "__main__":
         else:
             state.time = now - state.time_0
 
-        # Add readings to chart histories
+        # Add readings to chart history
         window.history_chart_curve.appendData(state.time, state.reading_1)
 
-        # Logging to file
+        # Add readings to the log
         log.update()
 
         # We update the GUI right now because this is a singlethread demo
@@ -522,13 +537,9 @@ if __name__ == "__main__":
     #   Start the main GUI event loop
     # --------------------------------------------------------------------------
 
-    app.aboutToQuit.connect(about_to_quit)
-
     window = MainWindow(dev=ard, qlog=log)
-    window.qpbt_running.clicked.connect(
-        lambda state: timer_state.start() if state else timer_state.stop()
-    )
     window.timer_chart.start(CHART_INTERVAL_MS)
     window.show()
 
+    app.aboutToQuit.connect(about_to_quit)
     sys.exit(app.exec())
