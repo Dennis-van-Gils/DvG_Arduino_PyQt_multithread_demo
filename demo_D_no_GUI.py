@@ -31,15 +31,21 @@ DAQ_INTERVAL_MS = 10
 """[ms] Update interval for the data acquisition (DAQ)"""
 
 # Global flags
-USE_PC_TIME = True  # Use Arduino time or PC time?
-SIMULATE_ARDUINO = False  # Simulate an Arduino, instead?
+USE_PC_TIME = True
+"""Use Arduino time or PC time?"""
+SIMULATE_ARDUINO = False
+"""Simulate an Arduino in software?"""
 if sys.argv[-1] == "simulate":
     SIMULATE_ARDUINO = True
 
-# Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
 DEBUG = False
+"""Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
+"""
 
-print(f"{qtpy.API_NAME:9s} {qtpy.QT_VERSION}")
+print(
+    f"{qtpy.API_NAME:9s} "
+    f"{qtpy.QT_VERSION}"  # pyright: ignore[reportPrivateImportUsage]
+)
 
 # ------------------------------------------------------------------------------
 #   Main

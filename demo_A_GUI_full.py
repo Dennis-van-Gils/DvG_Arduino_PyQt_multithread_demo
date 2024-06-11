@@ -39,19 +39,24 @@ CHART_HISTORY_TIME = 10
 """[s] History length of the chart"""
 
 # Global flags
-# fmt: off
 TRY_USING_OPENGL = True
-USE_LARGER_TEXT  = False  # For demonstration on a beamer
-USE_PC_TIME      = True   # Use Arduino time or PC time?
-SIMULATE_ARDUINO = False  # Simulate an Arduino, instead?
-# fmt: on
+USE_LARGER_TEXT = False
+"""For demonstration on a beamer"""
+USE_PC_TIME = True
+"""Use Arduino time or PC time?"""
+SIMULATE_ARDUINO = False
+"""Simulate an Arduino in software?"""
 if sys.argv[-1] == "simulate":
     SIMULATE_ARDUINO = True
 
-# Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
 DEBUG = False
+"""Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
+"""
 
-print(f"{qtpy.API_NAME:9s} {qtpy.QT_VERSION}")
+print(
+    f"{qtpy.API_NAME:9s} "
+    f"{qtpy.QT_VERSION}"  # pyright: ignore[reportPrivateImportUsage]
+)
 print(f"PyQtGraph {pg.__version__}")
 
 if TRY_USING_OPENGL:
