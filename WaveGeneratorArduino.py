@@ -11,7 +11,6 @@ __version__ = "9.0"
 import time
 import datetime
 
-from qtpy import QtCore
 import numpy as np
 
 from dvg_debug_functions import dprint, print_fancy_traceback as pft
@@ -30,9 +29,12 @@ class WaveGeneratorArduino(Arduino):
         """Container for the process and measurement variables of the wave
         generator Arduino."""
 
-        time_0 = np.nan  # [s] Start of data acquisition
-        time = np.nan  # [s]
-        reading_1 = np.nan  # [arbitrary units]
+        time_0 = np.nan
+        """[s] Time at start of data acquisition"""
+        time = np.nan
+        """[s] Time at reading_1"""
+        reading_1 = np.nan
+        """[arbitrary units]"""
 
     def __init__(
         self,
@@ -49,11 +51,11 @@ class WaveGeneratorArduino(Arduino):
         # Container for the process and measurement variables
         self.state = self.State
 
-        # Mutex for proper multithreading. If the state variables are not
-        # atomic or thread-safe, you should lock and unlock this mutex for each
-        # read and write operation. In this demo we don't need it, but I keep it
-        # as reminder.
-        self.mutex = QtCore.QMutex()
+        """Remember, you might need a mutex for proper multithreading. If the
+        state variables are not atomic or thread-safe, you should lock and
+        unlock this mutex for each read and write operation. In this demo we
+        don't need it, hence it's commented out but I keep it as a reminder."""
+        # self.mutex = QtCore.QMutex()
 
     def set_waveform_to_sine(self):
         """Send the instruction to the Arduino to change to a sine wave."""
@@ -73,6 +75,9 @@ class WaveGeneratorArduino(Arduino):
 
         Returns: True if successful, False otherwise.
         """
+        # We will catch any exceptions and report on them, but will deliberately
+        # not reraise them. Design choice: The show must go on regardless.
+
         # Query the Arduino for its state
         success, reply = self.query_ascii_values("?", delimiter="\t")
         if not success:
@@ -84,8 +89,11 @@ class WaveGeneratorArduino(Arduino):
 
         # Parse readings into separate state variables
         try:
-            self.state.time, self.state.reading_1 = reply
-            self.state.time /= 1000
+            (  # pylint: disable=unbalanced-tuple-unpacking
+                self.state.time,
+                self.state.reading_1,
+            ) = reply
+            self.state.time /= 1000  # Transform [ms] to [s]
         except Exception as err:  # pylint: disable=broad-except
             pft(err, 3)
             dprint(
@@ -115,7 +123,7 @@ class FakeWaveGeneratorArduino:
         time = np.nan  # [s]
         reading_1 = np.nan  # [arbitrary units]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self):
         self.serial_settings = {}
         self.name = "FakeArd"
         self.long_name = "FakeArduino"
@@ -123,12 +131,6 @@ class FakeWaveGeneratorArduino:
 
         # Container for the process and measurement variables
         self.state = self.State
-
-        # Mutex for proper multithreading. If the state variables are not
-        # atomic or thread-safe, you should lock and unlock this mutex for each
-        # read and write operation. In this demo we don't need it, but I keep it
-        # as reminder.
-        self.mutex = QtCore.QMutex()
 
         self.wave_freq = 0.3  # [Hz]
         self.wave_type = "sine"
@@ -169,6 +171,6 @@ class FakeWaveGeneratorArduino:
         """Close the serial connection to the Arduino."""
         return
 
-    def auto_connect(self, *args, **kwargs):
+    def auto_connect(self):
         """Auto connect to the Arduino via serial."""
         return True
