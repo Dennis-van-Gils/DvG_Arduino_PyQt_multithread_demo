@@ -14,7 +14,6 @@ __version__ = "9.0"
 import os
 import sys
 import time
-from typing import Union
 import signal  # To catch CTRL+C and quit
 
 import qtpy
@@ -24,12 +23,13 @@ from qtpy.QtCore import Slot  # type: ignore
 import psutil
 
 from dvg_debug_functions import dprint, print_fancy_traceback as pft
-from dvg_qdeviceio import QDeviceIO, DAQ_TRIGGER
 
 from WaveGeneratorArduino import WaveGeneratorArduino, FakeWaveGeneratorArduino
+from WaveGeneratorArduino_qdev import WaveGeneratorArduino_qdev
 
 # Constants
-DAQ_INTERVAL_MS = 10  # 10 [ms]
+DAQ_INTERVAL_MS = 10
+"""[ms] Update interval for the data acquisition (DAQ)"""
 
 # Global flags
 USE_PC_TIME = True  # Use Arduino time or PC time?
@@ -41,81 +41,6 @@ if sys.argv[-1] == "simulate":
 DEBUG = False
 
 print(f"{qtpy.API_NAME:9s} {qtpy.QT_VERSION}")
-
-# ------------------------------------------------------------------------------
-#   WaveGeneratorArduino_qdev
-# ------------------------------------------------------------------------------
-
-
-class WaveGeneratorArduino_qdev(QDeviceIO):
-    """Manages multithreaded communication and periodical data acquisition for
-    a wave generator Arduino, referred to as the 'device'."""
-
-    def __init__(
-        self,
-        dev: Union[WaveGeneratorArduino, FakeWaveGeneratorArduino],
-        DAQ_interval_ms=DAQ_INTERVAL_MS,
-        DAQ_timer_type=QtCore.Qt.TimerType.PreciseTimer,
-        critical_not_alive_count=1,
-        debug=False,
-        **kwargs,
-    ):
-        super().__init__(dev, **kwargs)  # Pass kwargs onto QtCore.QObject()
-        self.dev: WaveGeneratorArduino  # Enforce type: removes `_NoDevice()`
-
-        self.create_worker_DAQ(
-            DAQ_trigger=DAQ_TRIGGER.INTERNAL_TIMER,
-            DAQ_function=self.DAQ_function,
-            DAQ_interval_ms=DAQ_interval_ms,
-            DAQ_timer_type=DAQ_timer_type,
-            critical_not_alive_count=critical_not_alive_count,
-            debug=debug,
-        )
-        self.create_worker_jobs(debug=debug)
-
-    def set_waveform_to_sine(self):
-        self.send(self.dev.set_waveform_to_sine)
-
-    def set_waveform_to_square(self):
-        self.send(self.dev.set_waveform_to_square)
-
-    def set_waveform_to_sawtooth(self):
-        self.send(self.dev.set_waveform_to_sawtooth)
-
-    # --------------------------------------------------------------------------
-    #   DAQ_function
-    # --------------------------------------------------------------------------
-
-    def DAQ_function(self) -> bool:
-        # Query the Arduino for its state
-        success, tmp_state = self.dev.query_ascii_values("?", delimiter="\t")
-        if not success:
-            dprint(f"'{self.dev.name}' reports IOError")
-            return False
-
-        # Parse readings into separate state variables
-        try:
-            self.dev.state.time, self.dev.state.reading_1 = tmp_state
-            self.dev.state.time /= 1000
-        except Exception as err:  # pylint: disable=broad-except
-            pft(err, 3)
-            dprint(f"'{self.dev.name}' reports IOError")
-            return False
-
-        # Use Arduino time or PC time?
-        now = time.perf_counter() if USE_PC_TIME else self.dev.state.time
-        if self.update_counter_DAQ == 1:
-            self.dev.state.time_0 = now
-            self.dev.state.time = 0
-        else:
-            self.dev.state.time = now - self.dev.state.time_0
-
-        # For demo purposes: Quit automatically after N updates
-        if self.update_counter_DAQ > 1000:
-            app.quit()
-
-        return True
-
 
 # ------------------------------------------------------------------------------
 #   Main
@@ -160,7 +85,42 @@ if __name__ == "__main__":
     #   Set up multithreaded communication with the Arduino
     # --------------------------------------------------------------------------
 
-    ard_qdev = WaveGeneratorArduino_qdev(dev=ard, debug=DEBUG)
+    def DAQ_function() -> bool:
+        # Query the Arduino for its state
+        success, tmp_state = ard.query_ascii_values("?", delimiter="\t")
+        if not success:
+            dprint(f"'{ard.name}' reports IOError")
+            return False
+
+        # Parse readings into separate state variables
+        try:
+            ard.state.time, ard.state.reading_1 = tmp_state
+            ard.state.time /= 1000
+        except Exception as err:  # pylint: disable=broad-except
+            pft(err, 3)
+            dprint(f"'{ard.name}' reports IOError")
+            return False
+
+        # Use Arduino time or PC time?
+        now = time.perf_counter() if USE_PC_TIME else ard.state.time
+        if ard_qdev.update_counter_DAQ == 1:
+            ard.state.time_0 = now
+            ard.state.time = 0
+        else:
+            ard.state.time = now - ard.state.time_0
+
+        # For demo purposes: Quit automatically after N updates
+        if ard_qdev.update_counter_DAQ > 1000:
+            app.quit()
+
+        return True
+
+    ard_qdev = WaveGeneratorArduino_qdev(
+        dev=ard,
+        DAQ_function=DAQ_function,
+        DAQ_interval_ms=DAQ_INTERVAL_MS,
+        debug=DEBUG,
+    )
 
     # --------------------------------------------------------------------------
     #   update_terminal
@@ -209,5 +169,4 @@ if __name__ == "__main__":
     ard_qdev.start(DAQ_priority=QtCore.QThread.Priority.TimeCriticalPriority)
 
     app.aboutToQuit.connect(about_to_quit)
-
     sys.exit(app.exec())
