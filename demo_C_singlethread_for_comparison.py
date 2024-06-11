@@ -171,11 +171,14 @@ class MainWindow(QtWid.QWidget):
         # Right box
         p = {
             "alignment": QtCore.Qt.AlignmentFlag.AlignRight
-            | QtCore.Qt.AlignmentFlag.AlignVCenter
+            | QtCore.Qt.AlignmentFlag.AlignVCenter,
+            "parent": self,
         }
+
         self.qpbt_exit = QtWid.QPushButton("Exit")
         self.qpbt_exit.clicked.connect(self.close)
         self.qpbt_exit.setMinimumHeight(30)
+
         self.qlbl_GitHub = QtWid.QLabel(
             f'<a href="{__url__}">GitHub source</a>', **p
         )
@@ -185,7 +188,8 @@ class MainWindow(QtWid.QWidget):
         )
         self.qlbl_GitHub.setOpenExternalLinks(True)
 
-        vbox_right = QtWid.QVBoxLayout(spacing=4)
+        vbox_right = QtWid.QVBoxLayout()
+        vbox_right.setSpacing(4)
         vbox_right.addWidget(self.qpbt_exit, stretch=0)
         vbox_right.addStretch(1)
         vbox_right.addWidget(QtWid.QLabel(__author__, **p))
@@ -279,7 +283,7 @@ class MainWindow(QtWid.QWidget):
         self.plot_manager.add_autorange_buttons(linked_plots=self.plot)
         self.plot_manager.add_preset_buttons(
             linked_plots=self.plot,
-            linked_curves=self.history_chart_curve,
+            linked_curves=[self.history_chart_curve],
             presets=[
                 {
                     "button_label": "0.100",
@@ -302,7 +306,7 @@ class MainWindow(QtWid.QWidget):
             ],
         )
         self.plot_manager.add_clear_button(
-            linked_curves=self.history_chart_curve
+            linked_curves=[self.history_chart_curve]
         )
         self.plot_manager.perform_preset(1)
 
@@ -489,7 +493,7 @@ if __name__ == "__main__":
             ard.state.time, ard.state.reading_1
         )
 
-        # Add readings to the log
+        # Create and add readings to the log
         log.update()
 
         # We update the GUI right now because this is a singlethread demo
